@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Database, Search, AudioLines, HardDrive, LayoutGrid, RotateCw } from "lucide-react";
+import { Database, Search, AudioLines, HardDrive, LayoutGrid, RotateCw, Library } from "lucide-react";
 import { Button } from "./ui/button";
 import { useGetStats, useGetSyncStatus, useTriggerSync } from "@workspace/api-client-react";
 import { Badge } from "./ui/badge";
@@ -59,6 +59,10 @@ export function Layout({ children }: LayoutProps) {
             <Link href="/themes" className={`${location.startsWith("/themes") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"} transition-colors flex items-center gap-2`}>
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden sm:inline">Thèmes</span>
+            </Link>
+            <Link href="/resources" className={`${location.startsWith("/resources") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"} transition-colors flex items-center gap-2`}>
+              <Library className="w-4 h-4" />
+              <span className="hidden sm:inline">Ressources</span>
             </Link>
             
             <div className="h-4 w-px bg-border mx-2 hidden sm:block" />

@@ -186,6 +186,72 @@ export const ListThemesResponseItem = zod.object({
 export const ListThemesResponse = zod.array(ListThemesResponseItem);
 
 /**
+ * @summary List all resources mentioned across episodes
+ */
+export const listResourcesQuerySortByDefault = `mentions`;
+export const listResourcesQueryLimitDefault = 100;
+export const listResourcesQueryLimitMax = 500;
+
+export const listResourcesQueryOffsetDefault = 0;
+
+export const ListResourcesQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .optional()
+    .describe("Free-text search in resource title or domain"),
+  kind: zod
+    .enum(["book", "profile", "article", "video", "podcast", "other"])
+    .optional()
+    .describe("Filter by resource kind"),
+  themes: zod
+    .array(zod.coerce.string())
+    .optional()
+    .describe("Theme slugs of the source episode"),
+  sortBy: zod
+    .enum(["mentions", "recent", "title"])
+    .default(listResourcesQuerySortByDefault),
+  limit: zod.coerce
+    .number()
+    .max(listResourcesQueryLimitMax)
+    .default(listResourcesQueryLimitDefault),
+  offset: zod.coerce.number().default(listResourcesQueryOffsetDefault),
+});
+
+export const ListResourcesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      url: zod.string(),
+      title: zod.string(),
+      kind: zod.enum([
+        "book",
+        "profile",
+        "article",
+        "video",
+        "podcast",
+        "other",
+      ]),
+      domain: zod.string().nullish(),
+      mentionCount: zod.number(),
+      firstMentionAt: zod.coerce.date(),
+      lastMentionAt: zod.coerce.date(),
+      themes: zod.array(zod.string()),
+      mentions: zod.array(
+        zod.object({
+          episodeId: zod.string(),
+          episodeNumber: zod.number().nullish(),
+          episodeTitle: zod.string(),
+          episodePubDate: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+  kindCounts: zod.record(zod.string(), zod.number()),
+});
+
+/**
  * @summary Trigger an RSS sync
  */
 export const TriggerSyncBody = zod.object({

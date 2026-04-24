@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { Request, Response } from "express";
 import { z } from "zod";
 import type { SQL } from "drizzle-orm";
-import { and, asc, desc, eq, gte, lte, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, like, sql, ne, arrayOverlaps } from "drizzle-orm";
 import { db, episodesTable } from "../lib/db";
 import { THEME_LABELS } from "../sync/themes";
 import { themeLabelFromSlug } from "../lib/slug";
@@ -44,7 +44,7 @@ function buildServer(): McpServer {
         conditions.push(like(episodesTable.searchText, `%${query.trim().toLowerCase()}%`));
       }
       if (themes && themes.length) {
-        conditions.push(sql`${episodesTable.themes} && ${themes}::text[]`);
+        conditions.push(arrayOverlaps(episodesTable.themes, themes));
       }
       if (typeof min_duration_min === "number") {
         conditions.push(gte(episodesTable.durationSec, min_duration_min * 60));
@@ -174,7 +174,7 @@ function buildServer(): McpServer {
       const candidates = await db
         .select()
         .from(episodesTable)
-        .where(sql`${episodesTable.themes} && ${themes}::text[] AND ${episodesTable.id} <> ${id}`);
+        .where(and(arrayOverlaps(episodesTable.themes, themes), ne(episodesTable.id, id)));
       const ranked = candidates
         .map((c) => {
           const overlap = (c.themes ?? []).filter((t) => themes.includes(t)).length;
@@ -188,6 +188,33 @@ function buildServer(): McpServer {
           shared_themes: (r.ep.themes ?? []).filter((t) => themes.includes(t)),
         }));
       return { content: [{ type: "text", text: JSON.stringify(ranked, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
+    "list_resources",
+    {
+      title: "Lister les ressources",
+      description:
+        "Liste toutes les ressources (livres, podcasts, vidéos, articles, profils, liens) mentionnées dans les épisodes, agrégées par URL.",
+      inputSchema: {
+        query: z.string().optional().describe("Texte de recherche (titre ou domaine)"),
+        kind: z.enum(["book", "profile", "article", "video", "podcast", "other"]).optional(),
+        themes: z.array(z.string()).optional().describe("Filtrer par slugs de thèmes des épisodes source"),
+        sort: z.enum(["mentions", "recent", "title"]).optional().default("mentions"),
+        limit: z.number().int().min(1).max(100).optional().default(30),
+      },
+    },
+    async ({ query, kind, themes, sort, limit }) => {
+      const { aggregateResources } = await import("../routes/resources");
+      const result = await aggregateResources({
+        q: query,
+        kind,
+        themes,
+        sortBy: sort,
+        limit,
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
   );
 

@@ -31,8 +31,8 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 French web app exploring the DataGen podcast (Robin Conquet) archive.
 
 ### Artifacts
-- `artifacts/api-server` — Express + Drizzle, RSS sync, OpenAI theme extraction (gpt-5-mini), MCP server at `/api/mcp` (4 tools: `search_episodes`, `get_episode`, `list_themes`, `get_related_episodes`).
-- `artifacts/datagen-explorer` — React + Vite frontend (Home, Episode detail, Themes pages). French UI, wouter routing, shadcn/ui, framer-motion.
+- `artifacts/api-server` — Express + Drizzle, RSS sync, OpenAI theme extraction (gpt-5-mini), MCP server at `/api/mcp` (5 tools: `search_episodes`, `get_episode`, `list_themes`, `get_related_episodes`, `list_resources`).
+- `artifacts/datagen-explorer` — React + Vite frontend (Home, Episode detail, Themes, Resources pages). French UI, wouter routing, shadcn/ui, framer-motion.
 
 ### Data flow
 1. RSS fetch from `https://feeds.acast.com/public/shows/data-gen` → parse with `rss-parser`.
@@ -45,6 +45,7 @@ French web app exploring the DataGen podcast (Robin Conquet) archive.
 - Full episode adds `descriptionHtml`, `descriptionText`, `recommendations[]`, `chapters[]`, `relatedLinks[]`.
 - Themes are flat slug strings on episodes; the `/themes` endpoint returns `{slug, name, count}` objects derived from the in-memory taxonomy.
 - Postgres array overlap uses drizzle's `arrayOverlaps()`, NOT `sql\`themes && ${arr}::text[]\`` (that produces a tuple, not an array).
+- `/resources` aggregates `recommendations` across all episodes, dedup by normalized URL (strip utm_*, fbclid, trailing slash, lowercase). Title picked among candidates by preferring non-generic ones; generic anchor text ("ici", "here", "linkedin"…) is replaced with a URL-derived label. Filters: `q`, `kind`, `themes`, `sortBy` (`mentions|recent|title`). Aggregation logic exposed via `aggregateResources()` for MCP reuse.
 
 ### Frontend conventions
 - All UI strings in French.

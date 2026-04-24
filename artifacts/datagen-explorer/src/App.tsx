@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Episode from "@/pages/Episode";
 import Themes from "@/pages/Themes";
+import Resources from "@/pages/Resources";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/episodes/:id" component={Episode} />
       <Route path="/themes" component={Themes} />
+      <Route path="/resources" component={Resources} />
       <Route component={NotFound} />
     </Switch>
   );

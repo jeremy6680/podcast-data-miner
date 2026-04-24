@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Search, Filter, PlayCircle, Clock, Calendar, BarChart3, HardDrive, Database, AudioLines } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { ListEpisodesSortBy, ListEpisodesSortOrder } from "@workspace/api-client-react/src/generated/api.schemas";
+import { ListEpisodesSortBy, ListEpisodesSortOrder } from "@workspace/api-client-react";
 
 const ANY_LANG = "__any__";
 

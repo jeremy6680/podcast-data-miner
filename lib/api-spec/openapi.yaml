@@ -14,6 +14,8 @@ tags:
     description: DataGen podcast episodes
   - name: themes
     description: Themes and topics
+  - name: resources
+    description: Resources mentioned across episodes
   - name: sync
     description: RSS sync operations
 paths:
@@ -159,6 +161,50 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Theme"
+
+  /resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: List all resources mentioned across episodes
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Free-text search in resource title or domain
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [book, profile, article, video, podcast, other]
+          description: Filter by resource kind
+        - in: query
+          name: themes
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+          description: Theme slugs of the source episode
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [mentions, recent, title]
+            default: mentions
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100, maximum: 500 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
 
   /sync:
     post:
@@ -331,6 +377,59 @@ components:
         total: { type: integer }
         limit: { type: integer }
         offset: { type: integer }
+
+    ResourceMention:
+      type: object
+      required: [episodeId, episodeTitle, episodePubDate]
+      properties:
+        episodeId: { type: string }
+        episodeNumber:
+          type: ["integer", "null"]
+        episodeTitle: { type: string }
+        episodePubDate:
+          type: string
+          format: date-time
+
+    Resource:
+      type: object
+      required: [url, title, kind, mentionCount, firstMentionAt, lastMentionAt, mentions, themes]
+      properties:
+        url: { type: string }
+        title: { type: string }
+        kind:
+          type: string
+          enum: [book, profile, article, video, podcast, other]
+        domain:
+          type: ["string", "null"]
+        mentionCount: { type: integer }
+        firstMentionAt:
+          type: string
+          format: date-time
+        lastMentionAt:
+          type: string
+          format: date-time
+        themes:
+          type: array
+          items: { type: string }
+        mentions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceMention"
+
+    ResourceListResponse:
+      type: object
+      required: [items, total, limit, offset, kindCounts]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Resource"
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+        kindCounts:
+          type: object
+          additionalProperties: { type: integer }
 
     SyncRequest:
       type: object

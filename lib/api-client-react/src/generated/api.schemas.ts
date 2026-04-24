@@ -92,6 +92,48 @@ export interface EpisodeListResponse {
   offset: number;
 }
 
+export interface ResourceMention {
+  episodeId: string;
+  /** @nullable */
+  episodeNumber?: number | null;
+  episodeTitle: string;
+  episodePubDate: string;
+}
+
+export type ResourceKind = (typeof ResourceKind)[keyof typeof ResourceKind];
+
+export const ResourceKind = {
+  book: "book",
+  profile: "profile",
+  article: "article",
+  video: "video",
+  podcast: "podcast",
+  other: "other",
+} as const;
+
+export interface Resource {
+  url: string;
+  title: string;
+  kind: ResourceKind;
+  /** @nullable */
+  domain?: string | null;
+  mentionCount: number;
+  firstMentionAt: string;
+  lastMentionAt: string;
+  themes: string[];
+  mentions: ResourceMention[];
+}
+
+export type ResourceListResponseKindCounts = { [key: string]: number };
+
+export interface ResourceListResponse {
+  items: Resource[];
+  total: number;
+  limit: number;
+  offset: number;
+  kindCounts: ResourceListResponseKindCounts;
+}
+
 export interface SyncRequest {
   /** If true, re-extract themes for already-synced episodes */
   force?: boolean;
@@ -170,3 +212,45 @@ export type GetRelatedEpisodesParams = {
    */
   limit?: number;
 };
+
+export type ListResourcesParams = {
+  /**
+   * Free-text search in resource title or domain
+   */
+  q?: string;
+  /**
+   * Filter by resource kind
+   */
+  kind?: ListResourcesKind;
+  /**
+   * Theme slugs of the source episode
+   */
+  themes?: string[];
+  sortBy?: ListResourcesSortBy;
+  /**
+   * @maximum 500
+   */
+  limit?: number;
+  offset?: number;
+};
+
+export type ListResourcesKind =
+  (typeof ListResourcesKind)[keyof typeof ListResourcesKind];
+
+export const ListResourcesKind = {
+  book: "book",
+  profile: "profile",
+  article: "article",
+  video: "video",
+  podcast: "podcast",
+  other: "other",
+} as const;
+
+export type ListResourcesSortBy =
+  (typeof ListResourcesSortBy)[keyof typeof ListResourcesSortBy];
+
+export const ListResourcesSortBy = {
+  mentions: "mentions",
+  recent: "recent",
+  title: "title",
+} as const;
