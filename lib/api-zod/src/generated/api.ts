@@ -14,3 +14,206 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Overview stats
+ */
+export const GetStatsResponse = zod.object({
+  totalEpisodes: zod.number(),
+  totalDurationSec: zod.number(),
+  themesCount: zod.number(),
+  lastSyncAt: zod.coerce.date().nullable(),
+  lastEpisodeAt: zod.coerce.date().nullable(),
+});
+
+/**
+ * @summary List episodes with filters and sort
+ */
+export const listEpisodesQuerySortByDefault = `pub_date`;
+export const listEpisodesQuerySortOrderDefault = `desc`;
+export const listEpisodesQueryLimitDefault = 50;
+export const listEpisodesQueryLimitMax = 500;
+
+export const listEpisodesQueryOffsetDefault = 0;
+
+export const ListEpisodesQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .optional()
+    .describe("Free-text search in title and description"),
+  themes: zod
+    .array(zod.coerce.string())
+    .optional()
+    .describe("Theme slugs to filter by (any match)"),
+  minDurationSec: zod.coerce.number().optional(),
+  maxDurationSec: zod.coerce.number().optional(),
+  language: zod.coerce
+    .string()
+    .optional()
+    .describe("Episode language code (fr or en)"),
+  sortBy: zod
+    .enum(["pub_date", "duration", "episode_number", "title"])
+    .default(listEpisodesQuerySortByDefault),
+  sortOrder: zod
+    .enum(["asc", "desc"])
+    .default(listEpisodesQuerySortOrderDefault),
+  limit: zod.coerce
+    .number()
+    .max(listEpisodesQueryLimitMax)
+    .default(listEpisodesQueryLimitDefault),
+  offset: zod.coerce.number().default(listEpisodesQueryOffsetDefault),
+});
+
+export const ListEpisodesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      episodeNumber: zod.number().nullish(),
+      title: zod.string(),
+      summary: zod.string().nullish(),
+      pubDate: zod.coerce.date(),
+      durationSec: zod.number(),
+      audioUrl: zod.string(),
+      link: zod.string(),
+      imageUrl: zod.string(),
+      language: zod.string(),
+      themes: zod.array(zod.string()),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+});
+
+/**
+ * @summary Get one episode with all details
+ */
+export const GetEpisodeParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetEpisodeResponse = zod
+  .object({
+    id: zod.string(),
+    episodeNumber: zod.number().nullish(),
+    title: zod.string(),
+    summary: zod.string().nullish(),
+    pubDate: zod.coerce.date(),
+    durationSec: zod.number(),
+    audioUrl: zod.string(),
+    link: zod.string(),
+    imageUrl: zod.string(),
+    language: zod.string(),
+    themes: zod.array(zod.string()),
+  })
+  .and(
+    zod.object({
+      descriptionHtml: zod.string(),
+      descriptionText: zod.string(),
+      recommendations: zod.array(
+        zod.object({
+          title: zod.string(),
+          url: zod.string(),
+          kind: zod.enum([
+            "book",
+            "profile",
+            "article",
+            "video",
+            "podcast",
+            "other",
+          ]),
+        }),
+      ),
+      chapters: zod.array(
+        zod.object({
+          timeSec: zod.number(),
+          title: zod.string(),
+        }),
+      ),
+      relatedLinks: zod.array(
+        zod.object({
+          title: zod.string(),
+          url: zod.string(),
+          episodeId: zod.string().nullish(),
+          episodeNumber: zod.number().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Episodes related by themes
+ */
+export const GetRelatedEpisodesParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const getRelatedEpisodesQueryLimitDefault = 6;
+export const getRelatedEpisodesQueryLimitMax = 20;
+
+export const GetRelatedEpisodesQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .max(getRelatedEpisodesQueryLimitMax)
+    .default(getRelatedEpisodesQueryLimitDefault),
+});
+
+export const GetRelatedEpisodesResponseItem = zod.object({
+  id: zod.string(),
+  episodeNumber: zod.number().nullish(),
+  title: zod.string(),
+  summary: zod.string().nullish(),
+  pubDate: zod.coerce.date(),
+  durationSec: zod.number(),
+  audioUrl: zod.string(),
+  link: zod.string(),
+  imageUrl: zod.string(),
+  language: zod.string(),
+  themes: zod.array(zod.string()),
+});
+export const GetRelatedEpisodesResponse = zod.array(
+  GetRelatedEpisodesResponseItem,
+);
+
+/**
+ * @summary List all themes with episode counts
+ */
+export const ListThemesResponseItem = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  count: zod.number(),
+});
+export const ListThemesResponse = zod.array(ListThemesResponseItem);
+
+/**
+ * @summary Trigger an RSS sync
+ */
+export const TriggerSyncBody = zod.object({
+  force: zod
+    .boolean()
+    .optional()
+    .describe("If true, re-extract themes for already-synced episodes"),
+  extractThemes: zod
+    .boolean()
+    .optional()
+    .describe("Run AI theme extraction (default true)"),
+});
+
+/**
+ * @summary Current sync status
+ */
+export const GetSyncStatusResponse = zod.object({
+  state: zod.enum([
+    "idle",
+    "fetching",
+    "parsing",
+    "extracting",
+    "done",
+    "error",
+  ]),
+  totalEpisodes: zod.number(),
+  processedEpisodes: zod.number(),
+  message: zod.string(),
+  startedAt: zod.coerce.date().nullish(),
+  finishedAt: zod.coerce.date().nullish(),
+});

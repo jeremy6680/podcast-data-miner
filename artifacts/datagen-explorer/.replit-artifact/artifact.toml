@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "DataGen Explorer"
+version = "1.0.0"
+id = "artifacts/datagen-explorer"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19899
+
+[services.development]
+run = "pnpm --filter @workspace/datagen-explorer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/datagen-explorer", "run", "build" ]
+publicDir = "artifacts/datagen-explorer/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19899"
+BASE_PATH = "/"

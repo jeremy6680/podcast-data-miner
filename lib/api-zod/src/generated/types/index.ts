@@ -6,4 +6,21 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./chapter";
+export * from "./episode";
+export * from "./episodeListResponse";
+export * from "./episodeSummary";
+export * from "./errorResponse";
+export * from "./getRelatedEpisodesParams";
 export * from "./healthStatus";
+export * from "./listEpisodesParams";
+export * from "./listEpisodesSortBy";
+export * from "./listEpisodesSortOrder";
+export * from "./recommendation";
+export * from "./recommendationKind";
+export * from "./relatedLink";
+export * from "./stats";
+export * from "./syncRequest";
+export * from "./syncStatus";
+export * from "./syncStatusState";
+export * from "./theme";

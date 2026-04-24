@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: episodes
+    description: DataGen podcast episodes
+  - name: themes
+    description: Themes and topics
+  - name: sync
+    description: RSS sync operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,168 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [episodes]
+      summary: Overview stats
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /episodes:
+    get:
+      operationId: listEpisodes
+      tags: [episodes]
+      summary: List episodes with filters and sort
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Free-text search in title and description
+        - in: query
+          name: themes
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+          description: Theme slugs to filter by (any match)
+        - in: query
+          name: minDurationSec
+          schema: { type: integer }
+        - in: query
+          name: maxDurationSec
+          schema: { type: integer }
+        - in: query
+          name: language
+          schema: { type: string }
+          description: Episode language code (fr or en)
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [pub_date, duration, episode_number, title]
+            default: pub_date
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 500 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeListResponse"
+
+  /episodes/{id}:
+    get:
+      operationId: getEpisode
+      tags: [episodes]
+      summary: Get one episode with all details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /episodes/{id}/related:
+    get:
+      operationId: getRelatedEpisodes
+      tags: [episodes]
+      summary: Episodes related by themes
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 6, maximum: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EpisodeSummary"
+
+  /themes:
+    get:
+      operationId: listThemes
+      tags: [themes]
+      summary: List all themes with episode counts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Theme"
+
+  /sync:
+    post:
+      operationId: triggerSync
+      tags: [sync]
+      summary: Trigger an RSS sync
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncRequest"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+
+  /sync/status:
+    get:
+      operationId: getSyncStatus
+      tags: [sync]
+      summary: Current sync status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +202,159 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    Stats:
+      type: object
+      required:
+        - totalEpisodes
+        - totalDurationSec
+        - themesCount
+        - lastSyncAt
+        - lastEpisodeAt
+      properties:
+        totalEpisodes: { type: integer }
+        totalDurationSec: { type: integer }
+        themesCount: { type: integer }
+        lastSyncAt:
+          type: ["string", "null"]
+          format: date-time
+        lastEpisodeAt:
+          type: ["string", "null"]
+          format: date-time
+
+    Theme:
+      type: object
+      required: [slug, name, count]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        count: { type: integer }
+
+    Recommendation:
+      type: object
+      required: [title, url, kind]
+      properties:
+        title: { type: string }
+        url: { type: string }
+        kind:
+          type: string
+          enum: [book, profile, article, video, podcast, other]
+
+    Chapter:
+      type: object
+      required: [timeSec, title]
+      properties:
+        timeSec: { type: integer }
+        title: { type: string }
+
+    RelatedLink:
+      type: object
+      required: [title, url]
+      properties:
+        title: { type: string }
+        url: { type: string }
+        episodeId:
+          type: ["string", "null"]
+        episodeNumber:
+          type: ["integer", "null"]
+
+    EpisodeSummary:
+      type: object
+      required:
+        - id
+        - title
+        - pubDate
+        - durationSec
+        - audioUrl
+        - link
+        - imageUrl
+        - themes
+        - language
+      properties:
+        id: { type: string }
+        episodeNumber:
+          type: ["integer", "null"]
+        title: { type: string }
+        summary:
+          type: ["string", "null"]
+        pubDate:
+          type: string
+          format: date-time
+        durationSec: { type: integer }
+        audioUrl: { type: string }
+        link: { type: string }
+        imageUrl: { type: string }
+        language: { type: string }
+        themes:
+          type: array
+          items: { type: string }
+
+    Episode:
+      allOf:
+        - $ref: "#/components/schemas/EpisodeSummary"
+        - type: object
+          required:
+            - descriptionHtml
+            - descriptionText
+            - recommendations
+            - chapters
+            - relatedLinks
+          properties:
+            descriptionHtml: { type: string }
+            descriptionText: { type: string }
+            recommendations:
+              type: array
+              items:
+                $ref: "#/components/schemas/Recommendation"
+            chapters:
+              type: array
+              items:
+                $ref: "#/components/schemas/Chapter"
+            relatedLinks:
+              type: array
+              items:
+                $ref: "#/components/schemas/RelatedLink"
+
+    EpisodeListResponse:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EpisodeSummary"
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    SyncRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: If true, re-extract themes for already-synced episodes
+        extractThemes:
+          type: boolean
+          description: Run AI theme extraction (default true)
+
+    SyncStatus:
+      type: object
+      required: [state, totalEpisodes, processedEpisodes, message]
+      properties:
+        state:
+          type: string
+          enum: [idle, fetching, parsing, extracting, done, error]
+        totalEpisodes: { type: integer }
+        processedEpisodes: { type: integer }
+        message: { type: string }
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        finishedAt:
+          type: ["string", "null"]
+          format: date-time

@@ -8,3 +8,165 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface Stats {
+  totalEpisodes: number;
+  totalDurationSec: number;
+  themesCount: number;
+  /** @nullable */
+  lastSyncAt: string | null;
+  /** @nullable */
+  lastEpisodeAt: string | null;
+}
+
+export interface Theme {
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export type RecommendationKind =
+  (typeof RecommendationKind)[keyof typeof RecommendationKind];
+
+export const RecommendationKind = {
+  book: "book",
+  profile: "profile",
+  article: "article",
+  video: "video",
+  podcast: "podcast",
+  other: "other",
+} as const;
+
+export interface Recommendation {
+  title: string;
+  url: string;
+  kind: RecommendationKind;
+}
+
+export interface Chapter {
+  timeSec: number;
+  title: string;
+}
+
+export interface RelatedLink {
+  title: string;
+  url: string;
+  /** @nullable */
+  episodeId?: string | null;
+  /** @nullable */
+  episodeNumber?: number | null;
+}
+
+export interface EpisodeSummary {
+  id: string;
+  /** @nullable */
+  episodeNumber?: number | null;
+  title: string;
+  /** @nullable */
+  summary?: string | null;
+  pubDate: string;
+  durationSec: number;
+  audioUrl: string;
+  link: string;
+  imageUrl: string;
+  language: string;
+  themes: string[];
+}
+
+export type Episode = EpisodeSummary & {
+  descriptionHtml: string;
+  descriptionText: string;
+  recommendations: Recommendation[];
+  chapters: Chapter[];
+  relatedLinks: RelatedLink[];
+};
+
+export interface EpisodeListResponse {
+  items: EpisodeSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SyncRequest {
+  /** If true, re-extract themes for already-synced episodes */
+  force?: boolean;
+  /** Run AI theme extraction (default true) */
+  extractThemes?: boolean;
+}
+
+export type SyncStatusState =
+  (typeof SyncStatusState)[keyof typeof SyncStatusState];
+
+export const SyncStatusState = {
+  idle: "idle",
+  fetching: "fetching",
+  parsing: "parsing",
+  extracting: "extracting",
+  done: "done",
+  error: "error",
+} as const;
+
+export interface SyncStatus {
+  state: SyncStatusState;
+  totalEpisodes: number;
+  processedEpisodes: number;
+  message: string;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  finishedAt?: string | null;
+}
+
+export type ListEpisodesParams = {
+  /**
+   * Free-text search in title and description
+   */
+  q?: string;
+  /**
+   * Theme slugs to filter by (any match)
+   */
+  themes?: string[];
+  minDurationSec?: number;
+  maxDurationSec?: number;
+  /**
+   * Episode language code (fr or en)
+   */
+  language?: string;
+  sortBy?: ListEpisodesSortBy;
+  sortOrder?: ListEpisodesSortOrder;
+  /**
+   * @maximum 500
+   */
+  limit?: number;
+  offset?: number;
+};
+
+export type ListEpisodesSortBy =
+  (typeof ListEpisodesSortBy)[keyof typeof ListEpisodesSortBy];
+
+export const ListEpisodesSortBy = {
+  pub_date: "pub_date",
+  duration: "duration",
+  episode_number: "episode_number",
+  title: "title",
+} as const;
+
+export type ListEpisodesSortOrder =
+  (typeof ListEpisodesSortOrder)[keyof typeof ListEpisodesSortOrder];
+
+export const ListEpisodesSortOrder = {
+  asc: "asc",
+  desc: "desc",
+} as const;
+
+export type GetRelatedEpisodesParams = {
+  /**
+   * @maximum 20
+   */
+  limit?: number;
+};

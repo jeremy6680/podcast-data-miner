@@ -10,14 +10,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/integrations-openai-ai-server": "workspace:*",
+    "cheerio": "^1.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "fast-xml-parser": "^4.5.1",
+    "p-limit": "^7.3.0",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

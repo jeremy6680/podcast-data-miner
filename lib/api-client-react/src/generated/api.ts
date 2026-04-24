@@ -5,18 +5,33 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  Episode,
+  EpisodeListResponse,
+  EpisodeSummary,
+  ErrorResponse,
+  GetRelatedEpisodesParams,
+  HealthStatus,
+  ListEpisodesParams,
+  Stats,
+  SyncRequest,
+  SyncStatus,
+  Theme,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -92,6 +107,605 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Overview stats
+ */
+export const getGetStatsUrl = () => {
+  return `/api/stats`;
+};
+
+export const getStats = async (options?: RequestInit): Promise<Stats> => {
+  return customFetch<Stats>(getGetStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStatsQueryKey = () => {
+  return [`/api/stats`] as const;
+};
+
+export const getGetStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStats>>> = ({
+    signal,
+  }) => getStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStats>>
+>;
+export type GetStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Overview stats
+ */
+
+export function useGetStats<
+  TData = Awaited<ReturnType<typeof getStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List episodes with filters and sort
+ */
+export const getListEpisodesUrl = (params?: ListEpisodesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["themes"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? "null" : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/episodes?${stringifiedParams}`
+    : `/api/episodes`;
+};
+
+export const listEpisodes = async (
+  params?: ListEpisodesParams,
+  options?: RequestInit,
+): Promise<EpisodeListResponse> => {
+  return customFetch<EpisodeListResponse>(getListEpisodesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEpisodesQueryKey = (params?: ListEpisodesParams) => {
+  return [`/api/episodes`, ...(params ? [params] : [])] as const;
+};
+
+export const getListEpisodesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEpisodesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEpisodes>>> = ({
+    signal,
+  }) => listEpisodes(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEpisodes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEpisodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEpisodes>>
+>;
+export type ListEpisodesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List episodes with filters and sort
+ */
+
+export function useListEpisodes<
+  TData = Awaited<ReturnType<typeof listEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEpisodesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get one episode with all details
+ */
+export const getGetEpisodeUrl = (id: string) => {
+  return `/api/episodes/${id}`;
+};
+
+export const getEpisode = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Episode> => {
+  return customFetch<Episode>(getGetEpisodeUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEpisodeQueryKey = (id: string) => {
+  return [`/api/episodes/${id}`] as const;
+};
+
+export const getGetEpisodeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEpisode>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEpisode>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEpisodeQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getEpisode>>> = ({
+    signal,
+  }) => getEpisode(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEpisode>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEpisodeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEpisode>>
+>;
+export type GetEpisodeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get one episode with all details
+ */
+
+export function useGetEpisode<
+  TData = Awaited<ReturnType<typeof getEpisode>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEpisode>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEpisodeQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Episodes related by themes
+ */
+export const getGetRelatedEpisodesUrl = (
+  id: string,
+  params?: GetRelatedEpisodesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/episodes/${id}/related?${stringifiedParams}`
+    : `/api/episodes/${id}/related`;
+};
+
+export const getRelatedEpisodes = async (
+  id: string,
+  params?: GetRelatedEpisodesParams,
+  options?: RequestInit,
+): Promise<EpisodeSummary[]> => {
+  return customFetch<EpisodeSummary[]>(getGetRelatedEpisodesUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRelatedEpisodesQueryKey = (
+  id: string,
+  params?: GetRelatedEpisodesParams,
+) => {
+  return [`/api/episodes/${id}/related`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetRelatedEpisodesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRelatedEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  params?: GetRelatedEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRelatedEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRelatedEpisodesQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRelatedEpisodes>>
+  > = ({ signal }) =>
+    getRelatedEpisodes(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRelatedEpisodes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRelatedEpisodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRelatedEpisodes>>
+>;
+export type GetRelatedEpisodesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Episodes related by themes
+ */
+
+export function useGetRelatedEpisodes<
+  TData = Awaited<ReturnType<typeof getRelatedEpisodes>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  params?: GetRelatedEpisodesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRelatedEpisodes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRelatedEpisodesQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all themes with episode counts
+ */
+export const getListThemesUrl = () => {
+  return `/api/themes`;
+};
+
+export const listThemes = async (options?: RequestInit): Promise<Theme[]> => {
+  return customFetch<Theme[]>(getListThemesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListThemesQueryKey = () => {
+  return [`/api/themes`] as const;
+};
+
+export const getListThemesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listThemes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listThemes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListThemesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listThemes>>> = ({
+    signal,
+  }) => listThemes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listThemes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListThemesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listThemes>>
+>;
+export type ListThemesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all themes with episode counts
+ */
+
+export function useListThemes<
+  TData = Awaited<ReturnType<typeof listThemes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listThemes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListThemesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Trigger an RSS sync
+ */
+export const getTriggerSyncUrl = () => {
+  return `/api/sync`;
+};
+
+export const triggerSync = async (
+  syncRequest?: SyncRequest,
+  options?: RequestInit,
+): Promise<SyncStatus> => {
+  return customFetch<SyncStatus>(getTriggerSyncUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(syncRequest),
+  });
+};
+
+export const getTriggerSyncMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSync>>,
+    TError,
+    { data: BodyType<SyncRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof triggerSync>>,
+  TError,
+  { data: BodyType<SyncRequest> },
+  TContext
+> => {
+  const mutationKey = ["triggerSync"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof triggerSync>>,
+    { data: BodyType<SyncRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return triggerSync(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TriggerSyncMutationResult = NonNullable<
+  Awaited<ReturnType<typeof triggerSync>>
+>;
+export type TriggerSyncMutationBody = BodyType<SyncRequest>;
+export type TriggerSyncMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Trigger an RSS sync
+ */
+export const useTriggerSync = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSync>>,
+    TError,
+    { data: BodyType<SyncRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof triggerSync>>,
+  TError,
+  { data: BodyType<SyncRequest> },
+  TContext
+> => {
+  return useMutation(getTriggerSyncMutationOptions(options));
+};
+
+/**
+ * @summary Current sync status
+ */
+export const getGetSyncStatusUrl = () => {
+  return `/api/sync/status`;
+};
+
+export const getSyncStatus = async (
+  options?: RequestInit,
+): Promise<SyncStatus> => {
+  return customFetch<SyncStatus>(getGetSyncStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSyncStatusQueryKey = () => {
+  return [`/api/sync/status`] as const;
+};
+
+export const getGetSyncStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSyncStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSyncStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSyncStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSyncStatus>>> = ({
+    signal,
+  }) => getSyncStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSyncStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSyncStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSyncStatus>>
+>;
+export type GetSyncStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Current sync status
+ */
+
+export function useGetSyncStatus<
+  TData = Awaited<ReturnType<typeof getSyncStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSyncStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSyncStatusQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
