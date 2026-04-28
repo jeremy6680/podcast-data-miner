@@ -8,6 +8,20 @@ import { themeLabelFromSlug } from "../lib/slug";
 
 const router: IRouter = Router();
 
+function normalizeArrayQuery(
+  query: typeof import("express").request.query,
+  keys: string[],
+) {
+  const normalized = { ...query };
+  for (const key of keys) {
+    const value = normalized[key];
+    if (typeof value === "string") {
+      normalized[key] = [value];
+    }
+  }
+  return normalized;
+}
+
 function toSummary(e: typeof episodesTable.$inferSelect) {
   return {
     id: e.id,
@@ -36,7 +50,9 @@ function toFullEpisode(e: typeof episodesTable.$inferSelect) {
 }
 
 router.get("/episodes", async (req, res) => {
-  const parsed = ListEpisodesQueryParams.safeParse(req.query);
+  const parsed = ListEpisodesQueryParams.safeParse(
+    normalizeArrayQuery(req.query, ["themes"]),
+  );
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid query", details: parsed.error.issues });
     return;

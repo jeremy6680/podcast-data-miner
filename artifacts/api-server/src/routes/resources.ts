@@ -4,6 +4,20 @@ import { ListResourcesQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+function normalizeArrayQuery(
+  query: typeof import("express").request.query,
+  keys: string[],
+) {
+  const normalized = { ...query };
+  for (const key of keys) {
+    const value = normalized[key];
+    if (typeof value === "string") {
+      normalized[key] = [value];
+    }
+  }
+  return normalized;
+}
+
 type Kind = "book" | "profile" | "article" | "video" | "podcast" | "other";
 
 type Mention = {
@@ -241,7 +255,9 @@ export async function aggregateResources(input: AggregateResourcesInput) {
 }
 
 router.get("/resources", async (req, res) => {
-  const parsed = ListResourcesQueryParams.safeParse(req.query);
+  const parsed = ListResourcesQueryParams.safeParse(
+    normalizeArrayQuery(req.query, ["themes"]),
+  );
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid query", details: parsed.error.issues });
     return;

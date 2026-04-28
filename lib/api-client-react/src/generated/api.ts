@@ -41,6 +41,13 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
+type QueryOptions<TQueryFnData, TError, TData> = Omit<
+  UseQueryOptions<TQueryFnData, TError, TData>,
+  "queryKey"
+> & {
+  queryKey?: QueryKey;
+};
+
 /**
  * Returns server health status
  * @summary Health check
@@ -66,7 +73,7 @@ export const getHealthCheckQueryOptions = <
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -101,7 +108,7 @@ export function useHealthCheck<
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -139,7 +146,7 @@ export const getGetStatsQueryOptions = <
   TData = Awaited<ReturnType<typeof getStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  query?: QueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
@@ -170,7 +177,7 @@ export function useGetStats<
   TData = Awaited<ReturnType<typeof getStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  query?: QueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStatsQueryOptions(options);
@@ -230,7 +237,7 @@ export const getListEpisodesQueryOptions = <
 >(
   params?: ListEpisodesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof listEpisodes>>,
       TError,
       TData
@@ -268,7 +275,7 @@ export function useListEpisodes<
 >(
   params?: ListEpisodesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof listEpisodes>>,
       TError,
       TData
@@ -312,7 +319,7 @@ export const getGetEpisodeQueryOptions = <
 >(
   id: string,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof getEpisode>>,
       TError,
       TData
@@ -355,7 +362,7 @@ export function useGetEpisode<
 >(
   id: string,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof getEpisode>>,
       TError,
       TData
@@ -419,7 +426,7 @@ export const getGetRelatedEpisodesQueryOptions = <
   id: string,
   params?: GetRelatedEpisodesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof getRelatedEpisodes>>,
       TError,
       TData
@@ -465,7 +472,7 @@ export function useGetRelatedEpisodes<
   id: string,
   params?: GetRelatedEpisodesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof getRelatedEpisodes>>,
       TError,
       TData
@@ -504,7 +511,7 @@ export const getListThemesQueryOptions = <
   TData = Awaited<ReturnType<typeof listThemes>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof listThemes>>,
     TError,
     TData
@@ -539,7 +546,7 @@ export function useListThemes<
   TData = Awaited<ReturnType<typeof listThemes>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof listThemes>>,
     TError,
     TData
@@ -603,7 +610,7 @@ export const getListResourcesQueryOptions = <
 >(
   params?: ListResourcesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof listResources>>,
       TError,
       TData
@@ -641,7 +648,7 @@ export function useListResources<
 >(
   params?: ListResourcesParams,
   options?: {
-    query?: UseQueryOptions<
+    query?: QueryOptions<
       Awaited<ReturnType<typeof listResources>>,
       TError,
       TData
@@ -768,7 +775,7 @@ export const getGetSyncStatusQueryOptions = <
   TData = Awaited<ReturnType<typeof getSyncStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof getSyncStatus>>,
     TError,
     TData
@@ -803,7 +810,7 @@ export function useGetSyncStatus<
   TData = Awaited<ReturnType<typeof getSyncStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<
+  query?: QueryOptions<
     Awaited<ReturnType<typeof getSyncStatus>>,
     TError,
     TData
