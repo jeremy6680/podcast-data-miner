@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { PaginationControls } from "@/components/PaginationControls";
 import { useGetStats, useListEpisodes, useListPodcasts, useListThemes, useListTools, useTriggerSync } from "@workspace/api-client-react";
 import { formatRelativeDateFR, formatDurationFromSeconds } from "@/lib/format";
 import { Link, useLocation } from "wouter";
@@ -15,6 +16,12 @@ import { motion } from "framer-motion";
 import { ListEpisodesSortBy, ListEpisodesSortOrder } from "@workspace/api-client-react";
 
 const ANY_LANG = "__any__";
+const EPISODES_PAGE_SIZE = 50;
+
+function parsePage(value: string | null) {
+  const page = value ? Number.parseInt(value, 10) : 1;
+  return Number.isFinite(page) && page > 0 ? page : 1;
+}
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -36,6 +43,7 @@ export default function Home() {
   const initialSortBy = (searchParams.get("sortBy") as ListEpisodesSortBy) || "pub_date";
   const initialSortOrder = (searchParams.get("sortOrder") as ListEpisodesSortOrder) || "desc";
   const initialLang = searchParams.get("language") || ANY_LANG;
+  const initialPage = parsePage(searchParams.get("page"));
 
   const [q, setQ] = useState(initialQ);
   const debouncedQ = useDebounce(q, 300);
@@ -46,6 +54,7 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState<ListEpisodesSortOrder>(initialSortOrder);
   const [language, setLanguage] = useState<string>(initialLang);
   const [maxDuration, setMaxDuration] = useState(searchParams.get("maxDurationSec") ? parseInt(searchParams.get("maxDurationSec")!, 10) / 60 : 90);
+  const [page, setPage] = useState(initialPage);
 
   const [showFilters, setShowFilters] = useState(false);
 
@@ -59,13 +68,14 @@ export default function Home() {
     if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
     if (language && language !== ANY_LANG) params.set("language", language);
     if (maxDuration < 90) params.set("maxDurationSec", (maxDuration * 60).toString());
+    if (page > 1) params.set("page", page.toString());
 
     const newSearch = params.toString();
     const newUrl = newSearch ? `/?${newSearch}` : "/";
     if (window.location.search !== `?${newSearch}` && (window.location.search !== "" || newSearch !== "")) {
       setLocation(newUrl, { replace: true });
     }
-  }, [debouncedQ, selectedThemes, selectedTools, selectedPodcasts, sortBy, sortOrder, language, maxDuration, setLocation]);
+  }, [debouncedQ, selectedThemes, selectedTools, selectedPodcasts, sortBy, sortOrder, language, maxDuration, page, setLocation]);
 
   const { data: stats } = useGetStats();
   const { data: themesList } = useListThemes();
@@ -81,16 +91,28 @@ export default function Home() {
     sortOrder,
     language: language && language !== ANY_LANG ? language : undefined,
     maxDurationSec: maxDuration < 90 ? maxDuration * 60 : undefined,
-    limit: 50,
+    limit: EPISODES_PAGE_SIZE,
+    offset: (page - 1) * EPISODES_PAGE_SIZE,
   });
 
+  const totalPages = episodesData ? Math.max(1, Math.ceil(episodesData.total / EPISODES_PAGE_SIZE)) : 1;
+
+  useEffect(() => {
+    if (episodesData && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [episodesData, page, totalPages]);
+
   const toggleTheme = (slug: string) => {
+    setPage(1);
     setSelectedThemes((prev) => (prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug]));
   };
   const toggleTool = (slug: string) => {
+    setPage(1);
     setSelectedTools((prev) => (prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug]));
   };
   const togglePodcast = (slug: string) => {
+    setPage(1);
     setSelectedPodcasts((prev) => (prev.includes(slug) ? prev.filter((p) => p !== slug) : [...prev, slug]));
   };
 
@@ -183,7 +205,10 @@ export default function Home() {
                         <Input
                           placeholder="Entreprise, invité, sujet…"
                           value={q}
-                          onChange={(e) => setQ(e.target.value)}
+                          onChange={(e) => {
+                            setPage(1);
+                            setQ(e.target.value);
+                          }}
                           className="pl-9"
                         />
                       </div>
@@ -193,7 +218,7 @@ export default function Home() {
                       <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-muted-foreground">Podcasts</label>
                         {selectedPodcasts.length > 0 && (
-                          <button onClick={() => setSelectedPodcasts([])} className="text-xs text-primary hover:underline">
+                          <button onClick={() => { setPage(1); setSelectedPodcasts([]); }} className="text-xs text-primary hover:underline">
                             Tout effacer
                           </button>
                         )}
@@ -216,7 +241,7 @@ export default function Home() {
                       <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-muted-foreground">Thèmes</label>
                         {selectedThemes.length > 0 && (
-                          <button onClick={() => setSelectedThemes([])} className="text-xs text-primary hover:underline">
+                          <button onClick={() => { setPage(1); setSelectedThemes([]); }} className="text-xs text-primary hover:underline">
                             Tout effacer
                           </button>
                         )}
@@ -242,7 +267,7 @@ export default function Home() {
                       <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-muted-foreground">Outils</label>
                         {selectedTools.length > 0 && (
-                          <button onClick={() => setSelectedTools([])} className="text-xs text-primary hover:underline">
+                          <button onClick={() => { setPage(1); setSelectedTools([]); }} className="text-xs text-primary hover:underline">
                             Tout effacer
                           </button>
                         )}
@@ -274,13 +299,16 @@ export default function Home() {
                         max={90}
                         min={10}
                         step={5}
-                        onValueChange={(v) => setMaxDuration(v[0]!)}
+                        onValueChange={(v) => {
+                          setPage(1);
+                          setMaxDuration(v[0]!);
+                        }}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-muted-foreground">Langue</label>
-                      <Select value={language} onValueChange={setLanguage}>
+                      <Select value={language} onValueChange={(value) => { setPage(1); setLanguage(value); }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Toutes les langues" />
                         </SelectTrigger>
@@ -311,6 +339,7 @@ export default function Home() {
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Select value={`${sortBy}-${sortOrder}`} onValueChange={(val) => {
                     const [b, o] = val.split("-");
+                    setPage(1);
                     setSortBy(b as ListEpisodesSortBy);
                     setSortOrder(o as ListEpisodesSortOrder);
                   }}>
@@ -347,6 +376,7 @@ export default function Home() {
                   <h3 className="text-lg font-medium text-foreground mb-2">Aucun épisode ne correspond</h3>
                   <p className="text-muted-foreground mb-6">Ajustez vos filtres ou votre recherche.</p>
                   <Button variant="outline" onClick={() => {
+                    setPage(1);
                     setQ("");
                     setSelectedThemes([]);
                     setSelectedTools([]);
@@ -358,100 +388,111 @@ export default function Home() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {episodesData?.items.map((episode, i) => (
-                    <motion.div
-                      key={episode.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.03, 0.4), duration: 0.4 }}
-                    >
-                      <Link href={`/episodes/${encodeURIComponent(episode.id)}`}>
-                        <Card className="h-full overflow-hidden hover-elevate transition-all duration-300 group cursor-pointer border-transparent hover:border-primary/30 flex flex-col">
-                          <div className="relative h-48 bg-muted overflow-hidden">
-                            {episode.imageUrl ? (
-                              <img
-                                src={episode.imageUrl}
-                                alt={episode.title}
-                                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-primary/5 text-primary">
-                                <AudioLines className="w-12 h-12 opacity-50" />
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {episodesData?.items.map((episode, i) => (
+                      <motion.div
+                        key={episode.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.03, 0.4), duration: 0.4 }}
+                      >
+                        <Link href={`/episodes/${encodeURIComponent(episode.id)}`}>
+                          <Card className="h-full overflow-hidden hover-elevate transition-all duration-300 group cursor-pointer border-transparent hover:border-primary/30 flex flex-col">
+                            <div className="relative h-48 bg-muted overflow-hidden">
+                              {episode.imageUrl ? (
+                                <img
+                                  src={episode.imageUrl}
+                                  alt={episode.title}
+                                  className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-primary/5 text-primary">
+                                  <AudioLines className="w-12 h-12 opacity-50" />
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
 
-                            <div className="absolute top-3 left-3 flex gap-2">
-                              {episode.episodeNumber != null && (
-                                <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm">
-                                  #{episode.episodeNumber}
+                              <div className="absolute top-3 left-3 flex gap-2">
+                                {episode.episodeNumber != null && (
+                                  <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm">
+                                    #{episode.episodeNumber}
+                                  </Badge>
+                                )}
+                                <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm font-mono uppercase text-[10px]">
+                                  {episode.language.toUpperCase()}
                                 </Badge>
-                              )}
-                              <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm font-mono uppercase text-[10px]">
-                                {episode.language.toUpperCase()}
-                              </Badge>
-                              <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm text-[10px]">
-                                {episode.podcastName}
-                              </Badge>
-                            </div>
+                                <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm text-[10px]">
+                                  {episode.podcastName}
+                                </Badge>
+                              </div>
 
-                            <div className="absolute bottom-3 right-3">
-                              <div className="bg-background/90 backdrop-blur rounded-full p-2 text-foreground shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                <PlayCircle className="w-5 h-5" />
+                              <div className="absolute bottom-3 right-3">
+                                <div className="bg-background/90 backdrop-blur rounded-full p-2 text-foreground shadow-sm group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                  <PlayCircle className="w-5 h-5" />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <CardContent className="p-5 flex-1 flex flex-col">
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium mb-3">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5" />
-                                {formatRelativeDateFR(episode.pubDate)}
-                              </span>
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" />
-                                {formatDurationFromSeconds(episode.durationSec)}
-                              </span>
-                            </div>
-
-                            <h3 className="font-mono font-bold text-lg leading-tight mb-3 line-clamp-3 group-hover:text-primary transition-colors">
-                              {episode.title}
-                            </h3>
-
-                            {episode.summary && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
-                                {episode.summary}
-                              </p>
-                            )}
-
-                            <div className="flex flex-wrap gap-1.5 mt-auto">
-                              {episode.themes.slice(0, 3).map((theme) => (
-                                <span key={theme} className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 bg-secondary rounded text-secondary-foreground">
-                                  {theme}
+                            <CardContent className="p-5 flex-1 flex flex-col">
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium mb-3">
+                                <span className="flex items-center gap-1.5">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {formatRelativeDateFR(episode.pubDate)}
                                 </span>
-                              ))}
-                              {episode.themes.length > 3 && (
-                                <span className="text-[10px] font-medium px-2 py-1 bg-transparent text-muted-foreground">
-                                  +{episode.themes.length - 3}
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {formatDurationFromSeconds(episode.durationSec)}
                                 </span>
+                              </div>
+
+                              <h3 className="font-mono font-bold text-lg leading-tight mb-3 line-clamp-3 group-hover:text-primary transition-colors">
+                                {episode.title}
+                              </h3>
+
+                              {episode.summary && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
+                                  {episode.summary}
+                                </p>
                               )}
-                            </div>
-                            {episode.tools.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {episode.tools.slice(0, 3).map((tool) => (
-                                  <span key={tool} className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 bg-primary/10 rounded text-primary">
-                                    {tool}
+
+                              <div className="flex flex-wrap gap-1.5 mt-auto">
+                                {episode.themes.slice(0, 3).map((theme) => (
+                                  <span key={theme} className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 bg-secondary rounded text-secondary-foreground">
+                                    {theme}
                                   </span>
                                 ))}
+                                {episode.themes.length > 3 && (
+                                  <span className="text-[10px] font-medium px-2 py-1 bg-transparent text-muted-foreground">
+                                    +{episode.themes.length - 3}
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
+                              {episode.tools.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {episode.tools.slice(0, 3).map((tool) => (
+                                    <span key={tool} className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 bg-primary/10 rounded text-primary">
+                                      {tool}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  <PaginationControls
+                    currentPage={page}
+                    pageSize={EPISODES_PAGE_SIZE}
+                    total={episodesData?.total ?? 0}
+                    itemLabel="épisode"
+                    itemLabelPlural="épisodes"
+                    onPageChange={setPage}
+                  />
+                </>
               )}
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { PageHero } from "@/components/PageHero";
+import { PaginationControls } from "@/components/PaginationControls";
 import { useListResources, useListThemes } from "@workspace/api-client-react";
 import type { Resource, ListResourcesKind, ListResourcesSortBy, ResourceMention } from "@workspace/api-client-react";
 import { useState, useEffect } from "react";
@@ -15,6 +16,12 @@ import { motion } from "framer-motion";
 import { formatRelativeDateFR } from "@/lib/format";
 
 const ANY_KIND = "__any__";
+const RESOURCES_PAGE_SIZE = 50;
+
+function parsePage(value: string | null) {
+  const page = value ? Number.parseInt(value, 10) : 1;
+  return Number.isFinite(page) && page > 0 ? page : 1;
+}
 
 type Kind = "book" | "podcast" | "video" | "article" | "profile" | "other";
 
@@ -54,6 +61,7 @@ export default function Resources() {
   const [kind, setKind] = useState<string>(params.get("kind") || ANY_KIND);
   const [sortBy, setSortBy] = useState<ListResourcesSortBy>((params.get("sortBy") as ListResourcesSortBy) || "mentions");
   const [selectedThemes, setSelectedThemes] = useState<string[]>(params.getAll("themes"));
+  const [page, setPage] = useState(parsePage(params.get("page")));
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -62,12 +70,13 @@ export default function Resources() {
     if (kind && kind !== ANY_KIND) p.set("kind", kind);
     if (sortBy !== "mentions") p.set("sortBy", sortBy);
     selectedThemes.forEach((t) => p.append("themes", t));
+    if (page > 1) p.set("page", page.toString());
     const search = p.toString();
     const newUrl = search ? `/resources?${search}` : "/resources";
     if (window.location.search !== `?${search}` && (window.location.search !== "" || search !== "")) {
       setLocation(newUrl, { replace: true });
     }
-  }, [debouncedQ, kind, sortBy, selectedThemes, setLocation]);
+  }, [debouncedQ, kind, sortBy, selectedThemes, page, setLocation]);
 
   const { data: themesList } = useListThemes();
   const { data, isLoading } = useListResources({
@@ -75,11 +84,22 @@ export default function Resources() {
     kind: kind && kind !== ANY_KIND ? (kind as ListResourcesKind) : undefined,
     sortBy,
     themes: selectedThemes.length > 0 ? selectedThemes : undefined,
-    limit: 200,
+    limit: RESOURCES_PAGE_SIZE,
+    offset: (page - 1) * RESOURCES_PAGE_SIZE,
   });
 
-  const toggleTheme = (slug: string) =>
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / RESOURCES_PAGE_SIZE)) : 1;
+
+  useEffect(() => {
+    if (data && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [data, page, totalPages]);
+
+  const toggleTheme = (slug: string) => {
+    setPage(1);
     setSelectedThemes((prev) => (prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug]));
+  };
 
   const items = (data?.items ?? []) as Resource[];
   const kindCounts = data?.kindCounts ?? {};
@@ -112,7 +132,10 @@ export default function Resources() {
                       <Input
                         placeholder="Titre, domaine…"
                         value={q}
-                        onChange={(e) => setQ(e.target.value)}
+                        onChange={(e) => {
+                          setPage(1);
+                          setQ(e.target.value);
+                        }}
                         className="pl-9"
                       />
                     </div>
@@ -122,7 +145,7 @@ export default function Resources() {
                     <label className="text-sm font-medium text-muted-foreground">Type</label>
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => setKind(ANY_KIND)}
+                        onClick={() => { setPage(1); setKind(ANY_KIND); }}
                         className={`flex items-center justify-between text-left text-sm py-1.5 px-2 rounded-md transition-colors ${kind === ANY_KIND ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground"}`}
                       >
                         <span>Tous les types</span>
@@ -136,7 +159,7 @@ export default function Resources() {
                         return (
                           <button
                             key={k}
-                            onClick={() => setKind(k)}
+                            onClick={() => { setPage(1); setKind(k); }}
                             className={`flex items-center justify-between text-left text-sm py-1.5 px-2 rounded-md transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground"}`}
                           >
                             <span className="flex items-center gap-2">
@@ -154,7 +177,7 @@ export default function Resources() {
                     <div className="flex justify-between items-center">
                       <label className="text-sm font-medium text-muted-foreground">Thèmes de l'épisode</label>
                       {selectedThemes.length > 0 && (
-                        <button onClick={() => setSelectedThemes([])} className="text-xs text-primary hover:underline">
+                        <button onClick={() => { setPage(1); setSelectedThemes([]); }} className="text-xs text-primary hover:underline">
                           Tout effacer
                         </button>
                       )}
@@ -190,7 +213,7 @@ export default function Resources() {
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as ListResourcesSortBy)}>
+                <Select value={sortBy} onValueChange={(v) => { setPage(1); setSortBy(v as ListResourcesSortBy); }}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Trier" />
                   </SelectTrigger>
@@ -222,100 +245,111 @@ export default function Resources() {
                 <Library className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-medium mb-2">Aucune ressource</h3>
                 <p className="text-muted-foreground mb-6">Ajustez vos filtres ou votre recherche.</p>
-                <Button variant="outline" onClick={() => { setQ(""); setKind(ANY_KIND); setSelectedThemes([]); }}>
+                <Button variant="outline" onClick={() => { setPage(1); setQ(""); setKind(ANY_KIND); setSelectedThemes([]); }}>
                   Réinitialiser
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {items.map((r, i) => {
-                  const Icon = KIND_ICONS[r.kind as Kind] ?? ExternalLink;
-                  return (
-                    <motion.div
-                      key={r.url}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.015, 0.3), duration: 0.3 }}
-                    >
-                      <Card className="hover-elevate transition-colors group">
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 p-2.5 rounded-md bg-primary/10 text-primary">
-                              <Icon className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
-                                <span className="px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground">
-                                  {KIND_LABELS[r.kind as Kind] ?? r.kind}
-                                </span>
-                                {r.domain && <span className="truncate">{r.domain}</span>}
+              <>
+                <div className="space-y-3">
+                  {items.map((r, i) => {
+                    const Icon = KIND_ICONS[r.kind as Kind] ?? ExternalLink;
+                    return (
+                      <motion.div
+                        key={r.url}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.015, 0.3), duration: 0.3 }}
+                      >
+                        <Card className="hover-elevate transition-colors group">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div className="flex-shrink-0 p-2.5 rounded-md bg-primary/10 text-primary">
+                                <Icon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
+                                  <span className="px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground">
+                                    {KIND_LABELS[r.kind as Kind] ?? r.kind}
+                                  </span>
+                                  {r.domain && <span className="truncate">{r.domain}</span>}
+                                </div>
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block group/link"
+                                >
+                                  <h3 className="font-semibold text-foreground leading-snug group-hover/link:text-primary transition-colors line-clamp-2 mb-2">
+                                    {r.title}
+                                  </h3>
+                                </a>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                                  <span className="font-mono font-bold text-foreground">
+                                    {r.mentionCount} mention{r.mentionCount > 1 ? "s" : ""}
+                                  </span>
+                                  <span>•</span>
+                                  <span>Dernière : {formatRelativeDateFR(r.lastMentionAt)}</span>
+                                  {r.mentionCount > 1 && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Première : {formatRelativeDateFR(r.firstMentionAt)}</span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {r.mentions.length > 0 && (
+                                  <details className="mt-3 group/det">
+                                    <summary className="text-xs font-medium text-primary cursor-pointer list-none flex items-center gap-1 hover:underline">
+                                      <ChevronRight className="w-3 h-3 transition-transform group-open/det:rotate-90" />
+                                      Voir les épisodes
+                                    </summary>
+                                    <ul className="mt-2 space-y-1.5 pl-4 border-l border-border">
+                                      {r.mentions.slice(0, 12).map((m: ResourceMention) => (
+                                        <li key={m.episodeId} className="text-sm">
+                                          <Link
+                                            href={`/episodes/${encodeURIComponent(m.episodeId)}`}
+                                            className="text-foreground hover:text-primary transition-colors"
+                                          >
+                                            {m.episodeNumber != null && <span className="text-primary font-bold mr-1.5">#{m.episodeNumber}</span>}
+                                            {m.episodeTitle}
+                                          </Link>
+                                          <span className="text-xs text-muted-foreground ml-2">— {formatRelativeDateFR(m.episodePubDate)}</span>
+                                        </li>
+                                      ))}
+                                      {r.mentions.length > 12 && (
+                                        <li className="text-xs text-muted-foreground">+{r.mentions.length - 12} autres</li>
+                                      )}
+                                    </ul>
+                                  </details>
+                                )}
                               </div>
                               <a
                                 href={r.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block group/link"
+                                aria-label="Ouvrir le lien"
+                                className="flex-shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
                               >
-                                <h3 className="font-semibold text-foreground leading-snug group-hover/link:text-primary transition-colors line-clamp-2 mb-2">
-                                  {r.title}
-                                </h3>
+                                <ExternalLink className="w-4 h-4" />
                               </a>
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                                <span className="font-mono font-bold text-foreground">
-                                  {r.mentionCount} mention{r.mentionCount > 1 ? "s" : ""}
-                                </span>
-                                <span>•</span>
-                                <span>Dernière : {formatRelativeDateFR(r.lastMentionAt)}</span>
-                                {r.mentionCount > 1 && (
-                                  <>
-                                    <span>•</span>
-                                    <span>Première : {formatRelativeDateFR(r.firstMentionAt)}</span>
-                                  </>
-                                )}
-                              </div>
-
-                              {r.mentions.length > 0 && (
-                                <details className="mt-3 group/det">
-                                  <summary className="text-xs font-medium text-primary cursor-pointer list-none flex items-center gap-1 hover:underline">
-                                    <ChevronRight className="w-3 h-3 transition-transform group-open/det:rotate-90" />
-                                    Voir les épisodes
-                                  </summary>
-                                  <ul className="mt-2 space-y-1.5 pl-4 border-l border-border">
-                                    {r.mentions.slice(0, 12).map((m: ResourceMention) => (
-                                      <li key={m.episodeId} className="text-sm">
-                                        <Link
-                                          href={`/episodes/${encodeURIComponent(m.episodeId)}`}
-                                          className="text-foreground hover:text-primary transition-colors"
-                                        >
-                                          {m.episodeNumber != null && <span className="text-primary font-bold mr-1.5">#{m.episodeNumber}</span>}
-                                          {m.episodeTitle}
-                                        </Link>
-                                        <span className="text-xs text-muted-foreground ml-2">— {formatRelativeDateFR(m.episodePubDate)}</span>
-                                      </li>
-                                    ))}
-                                    {r.mentions.length > 12 && (
-                                      <li className="text-xs text-muted-foreground">+{r.mentions.length - 12} autres</li>
-                                    )}
-                                  </ul>
-                                </details>
-                              )}
                             </div>
-                            <a
-                              href={r.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label="Ouvrir le lien"
-                              className="flex-shrink-0 p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                <PaginationControls
+                  currentPage={page}
+                  pageSize={RESOURCES_PAGE_SIZE}
+                  total={data?.total ?? 0}
+                  itemLabel="ressource"
+                  itemLabelPlural="ressources"
+                  onPageChange={setPage}
+                />
+              </>
             )}
           </div>
         </div>
