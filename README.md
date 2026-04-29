@@ -1,26 +1,26 @@
 # Podcast Data Miner
 
-Application de collecte et d'exploration des episodes du podcast DataGen.
+Application for collecting and exploring episodes from the DataGen podcast.
 
-Le projet synchronise le flux RSS DataGen dans une base PostgreSQL, extrait les ressources citees dans les descriptions, classe les episodes par themes, puis expose le tout via une API Express et une interface React.
+The project syncs the public DataGen RSS feed into PostgreSQL, extracts resources mentioned in episode descriptions, classifies episodes by theme, and exposes the data through an Express API and a React frontend.
 
 ## Stack
 
-- Monorepo `pnpm`
+- `pnpm` monorepo
 - TypeScript
-- API Express dans `artifacts/api-server`
-- Frontend React/Vite dans `artifacts/datagen-explorer`
-- PostgreSQL + Drizzle dans `lib/db`
-- Contrat OpenAPI dans `lib/api-spec`
-- Clients/types generes dans `lib/api-client-react` et `lib/api-zod`
+- Express API in `artifacts/api-server`
+- React/Vite frontend in `artifacts/datagen-explorer`
+- PostgreSQL + Drizzle in `lib/db`
+- OpenAPI contract in `lib/api-spec`
+- Generated clients/types in `lib/api-client-react` and `lib/api-zod`
 
-## Prerequis
+## Requirements
 
-- Node.js recent
+- Recent Node.js version
 - `pnpm`
-- Une base PostgreSQL accessible en local ou distante
+- A local or remote PostgreSQL database
 
-Le repo bloque volontairement `npm` et `yarn`: utilisez `pnpm`.
+This repository intentionally blocks `npm` and `yarn`; use `pnpm`.
 
 ## Installation
 
@@ -30,13 +30,13 @@ pnpm install
 
 ## Configuration
 
-Creer un fichier `.env` a la racine du projet avec au minimum:
+Create a `.env` file at the repository root with at least:
 
 ```bash
 DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/podcast_data_miner"
 ```
 
-Variables utiles:
+Useful environment variables:
 
 ```bash
 # API
@@ -44,10 +44,10 @@ PORT=19899
 DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/podcast_data_miner"
 LOG_LEVEL=info
 
-# Frontend Vite
+# Vite frontend
 API_BASE_URL=http://localhost:19899
 
-# Extraction IA des themes, optionnel
+# Optional AI theme extraction
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
 
@@ -58,47 +58,47 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=...
 AI_INTEGRATIONS_OPENAI_API_KEY=...
 ```
 
-Les cles IA sont optionnelles. Sans elles, l'API retombe sur une extraction locale heuristique des themes.
+AI keys are optional. If none are configured, the API falls back to local heuristic theme extraction.
 
-## Initialiser la base
+## Initialize The Database
 
-Une fois `DATABASE_URL` configure:
+Once `DATABASE_URL` is configured:
 
 ```bash
 pnpm --filter @workspace/db push
 ```
 
-Cette commande applique le schema Drizzle dans PostgreSQL.
+This applies the Drizzle schema to PostgreSQL.
 
-## Lancer le projet en local
+## Run Locally
 
-Ouvrir deux terminaux.
+Open two terminals.
 
-Terminal 1: lancer l'API sur le port attendu par le frontend.
+Terminal 1: start the API on the port expected by the frontend.
 
 ```bash
 PORT=19899 pnpm --filter @workspace/api-server dev
 ```
 
-Terminal 2: lancer l'interface.
+Terminal 2: start the frontend.
 
 ```bash
 PORT=5173 pnpm --filter @workspace/datagen-explorer dev
 ```
 
-L'application est ensuite disponible sur:
+The app will be available at:
 
 ```text
 http://localhost:5173
 ```
 
-Le frontend proxy automatiquement les appels `/api` vers `http://localhost:19899`.
+The frontend automatically proxies `/api` requests to `http://localhost:19899`.
 
-## Synchroniser les episodes
+## Sync Episodes
 
-Depuis l'interface, utiliser le bouton de synchronisation RSS.
+From the UI, use the RSS sync button.
 
-On peut aussi declencher la synchro en HTTP:
+You can also trigger a sync over HTTP:
 
 ```bash
 curl -X POST http://localhost:19899/api/sync \
@@ -106,18 +106,18 @@ curl -X POST http://localhost:19899/api/sync \
   -d '{"extractThemes": true}'
 ```
 
-Suivre l'etat de la synchro:
+Check sync status:
 
 ```bash
 curl http://localhost:19899/api/sync/status
 ```
 
-Options du body:
+Request body options:
 
-- `extractThemes`: lance l'extraction des themes, `true` par defaut.
-- `force`: force la re-extraction des themes pour les episodes deja traites.
+- `extractThemes`: runs theme extraction, defaults to `true`.
+- `force`: re-extracts themes for episodes that were already processed.
 
-Pour importer rapidement les episodes sans extraction IA:
+To import episodes quickly without AI theme extraction:
 
 ```bash
 curl -X POST http://localhost:19899/api/sync \
@@ -125,30 +125,30 @@ curl -X POST http://localhost:19899/api/sync \
   -d '{"extractThemes": false}'
 ```
 
-## Commandes utiles
+## Useful Commands
 
 ```bash
-# Typecheck complet
+# Full typecheck
 pnpm run typecheck
 
-# Build complet
+# Full build
 pnpm run build
 
-# Build API seulement
+# API build only
 pnpm --filter @workspace/api-server build
 
-# Build frontend seulement
+# Frontend build only
 pnpm --filter @workspace/datagen-explorer build
 
-# Regenerer les clients/types depuis l'OpenAPI
+# Regenerate clients/types from the OpenAPI contract
 pnpm --filter @workspace/api-spec codegen
 ```
 
 ## API
 
-L'API est servie sous `/api`.
+The API is served under `/api`.
 
-Endpoints principaux:
+Main endpoints:
 
 - `GET /api/healthz`
 - `GET /api/episodes`
@@ -161,30 +161,30 @@ Endpoints principaux:
 - `GET /api/sync/status`
 - `ALL /api/mcp`
 
-Le contrat OpenAPI se trouve dans `lib/api-spec/openapi.yaml`.
+The OpenAPI contract is located at `lib/api-spec/openapi.yaml`.
 
-## Structure du repo
+## Repository Structure
 
 ```text
 artifacts/
-  api-server/          API Express + routes + synchronisation RSS
-  datagen-explorer/   Interface React/Vite
-  mockup-sandbox/     Sandbox UI
+  api-server/          Express API, routes, and RSS sync
+  datagen-explorer/   React/Vite frontend
+  mockup-sandbox/     UI sandbox
 
 lib/
-  api-spec/           Specification OpenAPI et generation Orval
-  api-client-react/   Client React genere
-  api-zod/            Schemas Zod generes pour l'API
-  db/                 Schema Drizzle et connexion PostgreSQL
+  api-spec/           OpenAPI specification and Orval generation
+  api-client-react/   Generated React API client
+  api-zod/            Generated Zod API schemas
+  db/                 Drizzle schema and PostgreSQL connection
   integrations-openai-ai-server/
-                       Integration OpenAI cote serveur
+                       Server-side OpenAI integration
 
-scripts/              Scripts utilitaires
+scripts/              Utility scripts
 ```
 
-## Notes de developpement
+## Development Notes
 
-- Le serveur API `dev` fait un build puis lance `dist/index.mjs`; il ne recharge pas automatiquement a chaque changement.
-- La synchro lit le flux RSS DataGen public: `https://feeds.acast.com/public/shows/5fa58959e64011214fbf140d`.
-- Les donnees principales sont stockees dans les tables `episodes` et `sync_state`.
-- Si l'interface affiche une base vide, lancez une synchro RSS puis rafraichissez l'UI une fois l'etat `done`.
+- The API `dev` script builds the server and then runs `dist/index.mjs`; it does not hot-reload automatically.
+- Sync reads the public DataGen RSS feed: `https://feeds.acast.com/public/shows/5fa58959e64011214fbf140d`.
+- Main data is stored in the `episodes` and `sync_state` tables.
+- If the UI shows an empty database, trigger an RSS sync and refresh the UI once the status is `done`.
