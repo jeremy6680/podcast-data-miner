@@ -23,11 +23,16 @@ function normalizeArrayQuery(
   return normalized;
 }
 
+function publicPodcastName(name: string, slug: string): string {
+  if (slug === "lennys-podcast") return "Lenny's Podcast";
+  return name;
+}
+
 function toSummary(e: typeof episodesTable.$inferSelect) {
   return {
     id: e.id,
     podcastSlug: e.podcastSlug,
-    podcastName: e.podcastName,
+    podcastName: publicPodcastName(e.podcastName, e.podcastSlug),
     podcastAuthor: e.podcastAuthor,
     episodeNumber: e.episodeNumber,
     title: e.title,
@@ -80,7 +85,7 @@ router.get("/episodes", async (req, res) => {
   const toolSlugs: string[] = tools ?? [];
   const podcastSlugs: string[] = podcasts ?? [];
 
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [sql`lower(${episodesTable.title}) not like '%redif%'`];
   if (q && q.trim().length) {
     const pattern = `%${q.trim().toLowerCase()}%`;
     conditions.push(like(episodesTable.searchText, pattern));
@@ -232,7 +237,7 @@ router.get("/podcasts", async (_req, res) => {
     .groupBy(episodesTable.podcastSlug, episodesTable.podcastName, episodesTable.podcastAuthor)
     .orderBy(sql`count(*) desc`);
 
-  res.json(rows.map((r) => ({ ...r, count: Number(r.count) })));
+  res.json(rows.map((r) => ({ ...r, name: publicPodcastName(r.name, r.slug), count: Number(r.count) })));
 });
 
 router.get("/stats", async (_req, res) => {

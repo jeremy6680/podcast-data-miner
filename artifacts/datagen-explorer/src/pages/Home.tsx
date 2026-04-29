@@ -222,7 +222,7 @@ export default function Home() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {themesList?.slice(0, 15).map((theme) => (
+                        {themesList?.slice(0, 10).map((theme) => (
                           <Badge
                             key={theme.slug}
                             variant={selectedThemes.includes(theme.slug) ? "default" : "secondary"}
@@ -248,7 +248,7 @@ export default function Home() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {toolsList?.slice(0, 15).map((tool) => (
+                        {toolsList?.slice(0, 10).map((tool) => (
                           <Badge
                             key={tool.slug}
                             variant={selectedTools.includes(tool.slug) ? "default" : "secondary"}

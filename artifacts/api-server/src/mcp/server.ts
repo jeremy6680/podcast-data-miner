@@ -42,7 +42,7 @@ function buildServer(): McpServer {
       },
     },
     async ({ query, podcasts, themes, tools, min_duration_min, max_duration_min, sort, limit }) => {
-      const conditions: SQL[] = [];
+      const conditions: SQL[] = [sql`lower(${episodesTable.title}) not like '%redif%'`];
       if (query && query.trim()) {
         conditions.push(like(episodesTable.searchText, `%${query.trim().toLowerCase()}%`));
       }
