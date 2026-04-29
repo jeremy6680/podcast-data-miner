@@ -8,6 +8,9 @@
 
 export interface EpisodeSummary {
   id: string;
+  podcastSlug: string;
+  podcastName: string;
+  podcastAuthor: string;
   /** @nullable */
   episodeNumber?: number | null;
   title: string;
@@ -20,4 +23,5 @@ export interface EpisodeSummary {
   imageUrl: string;
   language: string;
   themes: string[];
+  tools: string[];
 }

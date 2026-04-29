@@ -64,14 +64,11 @@ export default function Episode() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const { data: episode, isLoading, isError } = useGetEpisode(id, {
-    query: { enabled: !!id },
-  });
+  const { data: episode, isLoading, isError } = useGetEpisode(id);
 
   const { data: relatedEpisodes } = useGetRelatedEpisodes(
     id,
     { limit: 6 },
-    { query: { enabled: !!id } },
   );
 
   useEffect(() => {
@@ -162,6 +159,10 @@ export default function Episode() {
                   <span>•</span>
                 </>
               )}
+              <Link href={`/?podcasts=${encodeURIComponent(episode.podcastSlug)}`} className="hover:text-primary transition-colors">
+                {episode.podcastName}
+              </Link>
+              <span>•</span>
               <div
                 className="flex items-center gap-1.5"
                 title={format(new Date(episode.pubDate), "dd MMMM yyyy", { locale: fr })}
@@ -191,6 +192,18 @@ export default function Episode() {
                 {episode.themes.map((slug) => (
                   <Link key={slug} href={`/?themes=${encodeURIComponent(slug)}`}>
                     <Badge variant="secondary" className="hover:bg-primary hover:text-primary-foreground cursor-pointer text-sm py-1">
+                      {slug}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {episode.tools && episode.tools.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-8">
+                {episode.tools.map((slug) => (
+                  <Link key={slug} href={`/?tools=${encodeURIComponent(slug)}`}>
+                    <Badge variant="outline" className="hover:bg-primary hover:text-primary-foreground cursor-pointer text-sm py-1">
                       {slug}
                     </Badge>
                   </Link>

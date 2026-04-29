@@ -3,9 +3,10 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { Request, Response } from "express";
 import { z } from "zod";
 import type { SQL } from "drizzle-orm";
-import { and, asc, desc, eq, gte, lte, like, sql, ne, arrayOverlaps } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, like, sql, ne, arrayOverlaps, inArray } from "drizzle-orm";
 import { db, episodesTable } from "../lib/db";
 import { THEME_LABELS } from "../sync/themes";
+import { TOOL_LABELS } from "../sync/tools";
 import { themeLabelFromSlug } from "../lib/slug";
 import { toFullEpisode, toSummary } from "../routes/episodes";
 import { logger } from "../lib/logger";
@@ -16,7 +17,7 @@ function buildServer(): McpServer {
     {
       capabilities: { tools: {}, resources: {} },
       instructions:
-        "Outils pour explorer le podcast français DataGen (Robin Conquet). Recherche, filtrage par thèmes, et accès aux notes d'épisode complètes.",
+        "Outils pour explorer des podcasts data, produit et IA. Recherche, filtrage par podcast, thèmes et outils, et accès aux notes d'épisode complètes.",
     },
   );
 
@@ -25,10 +26,12 @@ function buildServer(): McpServer {
     {
       title: "Rechercher des épisodes",
       description:
-        "Recherche texte libre dans les épisodes DataGen. Filtres facultatifs par thèmes, durée, langue. Renvoie un résumé léger (sans HTML).",
+        "Recherche texte libre dans les épisodes. Filtres facultatifs par podcast, thèmes, outils, durée et langue. Renvoie un résumé léger (sans HTML).",
       inputSchema: {
         query: z.string().optional().describe("Texte de recherche (titre ou description)"),
+        podcasts: z.array(z.string()).optional().describe("Slugs de podcasts à filtrer"),
         themes: z.array(z.string()).optional().describe("Slugs de thèmes à filtrer"),
+        tools: z.array(z.string()).optional().describe("Slugs d'outils à filtrer"),
         min_duration_min: z.number().optional(),
         max_duration_min: z.number().optional(),
         sort: z
@@ -38,13 +41,19 @@ function buildServer(): McpServer {
         limit: z.number().int().min(1).max(50).optional().default(10),
       },
     },
-    async ({ query, themes, min_duration_min, max_duration_min, sort, limit }) => {
+    async ({ query, podcasts, themes, tools, min_duration_min, max_duration_min, sort, limit }) => {
       const conditions: SQL[] = [];
       if (query && query.trim()) {
         conditions.push(like(episodesTable.searchText, `%${query.trim().toLowerCase()}%`));
       }
       if (themes && themes.length) {
         conditions.push(arrayOverlaps(episodesTable.themes, themes));
+      }
+      if (tools && tools.length) {
+        conditions.push(arrayOverlaps(episodesTable.tools, tools));
+      }
+      if (podcasts && podcasts.length) {
+        conditions.push(inArray(episodesTable.podcastSlug, podcasts));
       }
       if (typeof min_duration_min === "number") {
         conditions.push(gte(episodesTable.durationSec, min_duration_min * 60));
@@ -72,6 +81,8 @@ function buildServer(): McpServer {
 
       const items = rows.map((e) => ({
         id: e.id,
+        podcast_slug: e.podcastSlug,
+        podcast_name: e.podcastName,
         episode_number: e.episodeNumber,
         title: e.title,
         summary: e.summary,
@@ -80,6 +91,7 @@ function buildServer(): McpServer {
         audio_url: e.audioUrl,
         link: e.link,
         themes: e.themes ?? [],
+        tools: e.tools ?? [],
       }));
       return {
         content: [{ type: "text", text: JSON.stringify({ count: items.length, items }, null, 2) }],
@@ -106,6 +118,8 @@ function buildServer(): McpServer {
       const text = JSON.stringify(
         {
           id: ep.id,
+          podcast_slug: ep.podcastSlug,
+          podcast_name: ep.podcastName,
           episode_number: ep.episodeNumber,
           title: ep.title,
           summary: ep.summary,
@@ -114,6 +128,7 @@ function buildServer(): McpServer {
           audio_url: ep.audioUrl,
           link: ep.link,
           themes: ep.themes,
+          tools: ep.tools,
           description: ep.descriptionText,
           chapters: ep.chapters,
           recommendations: ep.recommendations,
@@ -149,6 +164,55 @@ function buildServer(): McpServer {
         count: Number(r.count),
       }));
       return { content: [{ type: "text", text: JSON.stringify(themes, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
+    "list_tools",
+    {
+      title: "Lister les outils",
+      description:
+        "Liste tous les outils (slug + libellé + nombre d'épisodes), triés par fréquence.",
+      inputSchema: {},
+    },
+    async () => {
+      const rows = await db
+        .select({
+          slug: sql<string>`unnest(${episodesTable.tools})`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(episodesTable)
+        .groupBy(sql`unnest(${episodesTable.tools})`)
+        .orderBy(sql`count(*) desc`);
+      const tools = rows.map((r) => ({
+        slug: r.slug,
+        name: TOOL_LABELS[r.slug] ?? themeLabelFromSlug(r.slug),
+        count: Number(r.count),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(tools, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
+    "list_podcasts",
+    {
+      title: "Lister les podcasts",
+      description:
+        "Liste tous les podcasts sources (slug + nom + auteur + nombre d'épisodes).",
+      inputSchema: {},
+    },
+    async () => {
+      const rows = await db
+        .select({
+          slug: episodesTable.podcastSlug,
+          name: episodesTable.podcastName,
+          author: episodesTable.podcastAuthor,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(episodesTable)
+        .groupBy(episodesTable.podcastSlug, episodesTable.podcastName, episodesTable.podcastAuthor)
+        .orderBy(sql`count(*) desc`);
+      return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
     },
   );
 

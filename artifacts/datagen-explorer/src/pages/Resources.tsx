@@ -94,10 +94,10 @@ export default function Resources() {
               Ressources
             </div>
             <h1 className="text-4xl lg:text-5xl font-mono font-bold tracking-tight mb-3">
-              Toutes les ressources citées dans <span className="text-primary">DataGen</span>
+              Toutes les ressources citées dans les <span className="text-primary">podcasts suivis</span>
             </h1>
             <p className="text-base text-muted-foreground max-w-2xl">
-              Livres, podcasts, articles, vidéos et profils mentionnés au fil des épisodes — agrégés, dédupliqués et triables.
+              Livres, podcasts, articles, vidéos et profils mentionnés au fil des épisodes, agrégés, dédupliqués et triables.
             </p>
           </div>
         </div>

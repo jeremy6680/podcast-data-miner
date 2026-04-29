@@ -17,6 +17,8 @@ export interface Stats {
   totalEpisodes: number;
   totalDurationSec: number;
   themesCount: number;
+  toolsCount: number;
+  podcastsCount: number;
   /** @nullable */
   lastSyncAt: string | null;
   /** @nullable */
@@ -26,6 +28,19 @@ export interface Stats {
 export interface Theme {
   slug: string;
   name: string;
+  count: number;
+}
+
+export interface Tool {
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export interface Podcast {
+  slug: string;
+  name: string;
+  author: string;
   count: number;
 }
 
@@ -63,6 +78,9 @@ export interface RelatedLink {
 
 export interface EpisodeSummary {
   id: string;
+  podcastSlug: string;
+  podcastName: string;
+  podcastAuthor: string;
   /** @nullable */
   episodeNumber?: number | null;
   title: string;
@@ -75,6 +93,7 @@ export interface EpisodeSummary {
   imageUrl: string;
   language: string;
   themes: string[];
+  tools: string[];
 }
 
 export type Episode = EpisodeSummary & {
@@ -173,6 +192,14 @@ export type ListEpisodesParams = {
    * Theme slugs to filter by (any match)
    */
   themes?: string[];
+  /**
+   * Tool slugs to filter by (any match)
+   */
+  tools?: string[];
+  /**
+   * Podcast slugs to filter by (any match)
+   */
+  podcasts?: string[];
   minDurationSec?: number;
   maxDurationSec?: number;
   /**

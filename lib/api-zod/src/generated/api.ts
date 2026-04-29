@@ -22,6 +22,8 @@ export const GetStatsResponse = zod.object({
   totalEpisodes: zod.number(),
   totalDurationSec: zod.number(),
   themesCount: zod.number(),
+  toolsCount: zod.number(),
+  podcastsCount: zod.number(),
   lastSyncAt: zod.coerce.date().nullable(),
   lastEpisodeAt: zod.coerce.date().nullable(),
 });
@@ -45,6 +47,14 @@ export const ListEpisodesQueryParams = zod.object({
     .array(zod.coerce.string())
     .optional()
     .describe("Theme slugs to filter by (any match)"),
+  tools: zod
+    .array(zod.coerce.string())
+    .optional()
+    .describe("Tool slugs to filter by (any match)"),
+  podcasts: zod
+    .array(zod.coerce.string())
+    .optional()
+    .describe("Podcast slugs to filter by (any match)"),
   minDurationSec: zod.coerce.number().optional(),
   maxDurationSec: zod.coerce.number().optional(),
   language: zod.coerce
@@ -68,6 +78,9 @@ export const ListEpisodesResponse = zod.object({
   items: zod.array(
     zod.object({
       id: zod.string(),
+      podcastSlug: zod.string(),
+      podcastName: zod.string(),
+      podcastAuthor: zod.string(),
       episodeNumber: zod.number().nullish(),
       title: zod.string(),
       summary: zod.string().nullish(),
@@ -78,6 +91,7 @@ export const ListEpisodesResponse = zod.object({
       imageUrl: zod.string(),
       language: zod.string(),
       themes: zod.array(zod.string()),
+      tools: zod.array(zod.string()),
     }),
   ),
   total: zod.number(),
@@ -95,6 +109,9 @@ export const GetEpisodeParams = zod.object({
 export const GetEpisodeResponse = zod
   .object({
     id: zod.string(),
+    podcastSlug: zod.string(),
+    podcastName: zod.string(),
+    podcastAuthor: zod.string(),
     episodeNumber: zod.number().nullish(),
     title: zod.string(),
     summary: zod.string().nullish(),
@@ -105,6 +122,7 @@ export const GetEpisodeResponse = zod
     imageUrl: zod.string(),
     language: zod.string(),
     themes: zod.array(zod.string()),
+    tools: zod.array(zod.string()),
   })
   .and(
     zod.object({
@@ -160,6 +178,9 @@ export const GetRelatedEpisodesQueryParams = zod.object({
 
 export const GetRelatedEpisodesResponseItem = zod.object({
   id: zod.string(),
+  podcastSlug: zod.string(),
+  podcastName: zod.string(),
+  podcastAuthor: zod.string(),
   episodeNumber: zod.number().nullish(),
   title: zod.string(),
   summary: zod.string().nullish(),
@@ -170,6 +191,7 @@ export const GetRelatedEpisodesResponseItem = zod.object({
   imageUrl: zod.string(),
   language: zod.string(),
   themes: zod.array(zod.string()),
+  tools: zod.array(zod.string()),
 });
 export const GetRelatedEpisodesResponse = zod.array(
   GetRelatedEpisodesResponseItem,
@@ -184,6 +206,27 @@ export const ListThemesResponseItem = zod.object({
   count: zod.number(),
 });
 export const ListThemesResponse = zod.array(ListThemesResponseItem);
+
+/**
+ * @summary List all tools with episode counts
+ */
+export const ListToolsResponseItem = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  count: zod.number(),
+});
+export const ListToolsResponse = zod.array(ListToolsResponseItem);
+
+/**
+ * @summary List all source podcasts with episode counts
+ */
+export const ListPodcastsResponseItem = zod.object({
+  slug: zod.string(),
+  name: zod.string(),
+  author: zod.string(),
+  count: zod.number(),
+});
+export const ListPodcastsResponse = zod.array(ListPodcastsResponseItem);
 
 /**
  * @summary List all resources mentioned across episodes

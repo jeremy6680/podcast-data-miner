@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { useGetStats, useListEpisodes, useListThemes, useTriggerSync } from "@workspace/api-client-react";
+import { useGetStats, useListEpisodes, useListPodcasts, useListThemes, useListTools, useTriggerSync } from "@workspace/api-client-react";
 import { formatRelativeDateFR, formatDurationFromSeconds } from "@/lib/format";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Search, Filter, PlayCircle, Clock, Calendar, BarChart3, HardDrive, Database, AudioLines } from "lucide-react";
+import { Search, Filter, PlayCircle, Clock, Calendar, BarChart3, HardDrive, Database, AudioLines, Wrench, Podcast } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ListEpisodesSortBy, ListEpisodesSortOrder } from "@workspace/api-client-react";
@@ -31,6 +31,8 @@ export default function Home() {
 
   const initialQ = searchParams.get("q") || "";
   const initialThemes = searchParams.getAll("themes");
+  const initialTools = searchParams.getAll("tools");
+  const initialPodcasts = searchParams.getAll("podcasts");
   const initialSortBy = (searchParams.get("sortBy") as ListEpisodesSortBy) || "pub_date";
   const initialSortOrder = (searchParams.get("sortOrder") as ListEpisodesSortOrder) || "desc";
   const initialLang = searchParams.get("language") || ANY_LANG;
@@ -38,6 +40,8 @@ export default function Home() {
   const [q, setQ] = useState(initialQ);
   const debouncedQ = useDebounce(q, 300);
   const [selectedThemes, setSelectedThemes] = useState<string[]>(initialThemes);
+  const [selectedTools, setSelectedTools] = useState<string[]>(initialTools);
+  const [selectedPodcasts, setSelectedPodcasts] = useState<string[]>(initialPodcasts);
   const [sortBy, setSortBy] = useState<ListEpisodesSortBy>(initialSortBy);
   const [sortOrder, setSortOrder] = useState<ListEpisodesSortOrder>(initialSortOrder);
   const [language, setLanguage] = useState<string>(initialLang);
@@ -49,6 +53,8 @@ export default function Home() {
     const params = new URLSearchParams();
     if (debouncedQ) params.set("q", debouncedQ);
     selectedThemes.forEach((t) => params.append("themes", t));
+    selectedTools.forEach((t) => params.append("tools", t));
+    selectedPodcasts.forEach((p) => params.append("podcasts", p));
     if (sortBy !== "pub_date") params.set("sortBy", sortBy);
     if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
     if (language && language !== ANY_LANG) params.set("language", language);
@@ -59,14 +65,18 @@ export default function Home() {
     if (window.location.search !== `?${newSearch}` && (window.location.search !== "" || newSearch !== "")) {
       setLocation(newUrl, { replace: true });
     }
-  }, [debouncedQ, selectedThemes, sortBy, sortOrder, language, maxDuration, setLocation]);
+  }, [debouncedQ, selectedThemes, selectedTools, selectedPodcasts, sortBy, sortOrder, language, maxDuration, setLocation]);
 
   const { data: stats } = useGetStats();
   const { data: themesList } = useListThemes();
+  const { data: toolsList } = useListTools();
+  const { data: podcastsList } = useListPodcasts();
 
   const { data: episodesData, isLoading } = useListEpisodes({
     q: debouncedQ || undefined,
     themes: selectedThemes.length > 0 ? selectedThemes : undefined,
+    tools: selectedTools.length > 0 ? selectedTools : undefined,
+    podcasts: selectedPodcasts.length > 0 ? selectedPodcasts : undefined,
     sortBy,
     sortOrder,
     language: language && language !== ANY_LANG ? language : undefined,
@@ -76,6 +86,12 @@ export default function Home() {
 
   const toggleTheme = (slug: string) => {
     setSelectedThemes((prev) => (prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug]));
+  };
+  const toggleTool = (slug: string) => {
+    setSelectedTools((prev) => (prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug]));
+  };
+  const togglePodcast = (slug: string) => {
+    setSelectedPodcasts((prev) => (prev.includes(slug) ? prev.filter((p) => p !== slug) : [...prev, slug]));
   };
 
   const { mutate: triggerSync, isPending: isSyncing } = useTriggerSync();
@@ -87,10 +103,10 @@ export default function Home() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl">
             <h1 className="text-4xl lg:text-6xl font-mono font-bold tracking-tight mb-6 text-foreground">
-              Toute l'archive <span className="text-primary">DataGen</span>.
+              L'archive des <span className="text-primary">podcasts data & IA</span>.
             </h1>
             <p className="text-lg lg:text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed">
-              Parcourez, recherchez et explorez chaque épisode du podcast français de référence sur la data, l'IA et le leadership tech, animé par Robin Conquet.
+              Parcourez et filtrez les épisodes de DataGen, The Analytics Engineering Podcast, Lenny's Podcast et AI Engineering Podcast.
             </p>
 
             <div className="flex flex-wrap gap-6 items-center">
@@ -121,6 +137,15 @@ export default function Home() {
                   <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thèmes</div>
                 </div>
               </div>
+              <div className="flex items-center gap-3 bg-secondary/50 rounded-lg p-4 border border-secondary-border">
+                <div className="p-2 bg-primary/10 rounded-md text-primary">
+                  <Podcast className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-2xl font-mono font-bold">{stats?.podcastsCount ?? "..."}</div>
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Podcasts</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -134,7 +159,7 @@ export default function Home() {
             </div>
             <h2 className="text-2xl font-mono font-bold mb-4">Aucun épisode</h2>
             <p className="text-muted-foreground mb-8 max-w-md">
-              La base est vide. Lancez la synchronisation pour récupérer tous les épisodes du flux RSS DataGen.
+              La base est vide. Lancez la synchronisation pour récupérer les épisodes des flux RSS configurés.
             </p>
             <Button size="lg" onClick={() => triggerSync({ data: { extractThemes: true } })} disabled={isSyncing}>
               {isSyncing ? "Synchronisation en cours…" : "Synchroniser depuis le RSS"}
@@ -166,6 +191,29 @@ export default function Home() {
 
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-muted-foreground">Podcasts</label>
+                        {selectedPodcasts.length > 0 && (
+                          <button onClick={() => setSelectedPodcasts([])} className="text-xs text-primary hover:underline">
+                            Tout effacer
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {podcastsList?.map((podcast) => (
+                          <button
+                            key={podcast.slug}
+                            onClick={() => togglePodcast(podcast.slug)}
+                            className={`flex items-center justify-between text-left text-sm py-1.5 px-2 rounded-md transition-colors ${selectedPodcasts.includes(podcast.slug) ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground"}`}
+                          >
+                            <span className="line-clamp-1">{podcast.name}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{podcast.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-muted-foreground">Thèmes</label>
                         {selectedThemes.length > 0 && (
                           <button onClick={() => setSelectedThemes([])} className="text-xs text-primary hover:underline">
@@ -186,6 +234,32 @@ export default function Home() {
                         ))}
                         <Link href="/themes" className="text-xs font-medium text-primary py-1 px-2 hover:bg-primary/10 rounded-full transition-colors inline-flex items-center gap-1">
                           Voir tout <BarChart3 className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-muted-foreground">Outils</label>
+                        {selectedTools.length > 0 && (
+                          <button onClick={() => setSelectedTools([])} className="text-xs text-primary hover:underline">
+                            Tout effacer
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {toolsList?.slice(0, 15).map((tool) => (
+                          <Badge
+                            key={tool.slug}
+                            variant={selectedTools.includes(tool.slug) ? "default" : "secondary"}
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                            onClick={() => toggleTool(tool.slug)}
+                          >
+                            {tool.name}
+                          </Badge>
+                        ))}
+                        <Link href="/tools" className="text-xs font-medium text-primary py-1 px-2 hover:bg-primary/10 rounded-full transition-colors inline-flex items-center gap-1">
+                          Voir tout <Wrench className="w-3 h-3" />
                         </Link>
                       </div>
                     </div>
@@ -275,6 +349,8 @@ export default function Home() {
                   <Button variant="outline" onClick={() => {
                     setQ("");
                     setSelectedThemes([]);
+                    setSelectedTools([]);
+                    setSelectedPodcasts([]);
                     setLanguage(ANY_LANG);
                     setMaxDuration(90);
                   }}>
@@ -314,6 +390,9 @@ export default function Home() {
                               )}
                               <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm font-mono uppercase text-[10px]">
                                 {episode.language.toUpperCase()}
+                              </Badge>
+                              <Badge variant="secondary" className="bg-background/90 backdrop-blur text-foreground border-none shadow-sm text-[10px]">
+                                {episode.podcastName}
                               </Badge>
                             </div>
 
@@ -358,6 +437,15 @@ export default function Home() {
                                 </span>
                               )}
                             </div>
+                            {episode.tools.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {episode.tools.slice(0, 3).map((tool) => (
+                                  <span key={tool} className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 bg-primary/10 rounded text-primary">
+                                    {tool}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </Link>

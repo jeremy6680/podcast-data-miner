@@ -1,8 +1,8 @@
 # Podcast Data Miner
 
-Application for collecting and exploring episodes from the DataGen podcast.
+Application for collecting and exploring episodes from curated data, product, and AI podcasts.
 
-The project syncs the public DataGen RSS feed into PostgreSQL, extracts resources mentioned in episode descriptions, classifies episodes by theme, and exposes the data through an Express API and a React frontend.
+The project syncs public RSS feeds into PostgreSQL, extracts resources and tools mentioned in episode descriptions, classifies episodes by theme, and exposes the data through an Express API and a React frontend.
 
 ## Stack
 
@@ -185,6 +185,10 @@ scripts/              Utility scripts
 ## Development Notes
 
 - The API `dev` script builds the server and then runs `dist/index.mjs`; it does not hot-reload automatically.
-- Sync reads the public DataGen RSS feed: `https://feeds.acast.com/public/shows/5fa58959e64011214fbf140d`.
+- Sync reads these public RSS feeds:
+  - DataGen: `https://feeds.acast.com/public/shows/5fa58959e64011214fbf140d`
+  - The Analytics Engineering Podcast: `https://rss.libsyn.com/shows/352538/destinations/2880773.xml`
+  - Lenny's Podcast: `https://api.substack.com/feed/podcast/10845.rss`
+  - AI Engineering Podcast: `https://pub-4ff2e85593bd4bee9df83cd32bec10ca.r2.dev/feed/podcast.xml`
 - Main data is stored in the `episodes` and `sync_state` tables.
 - If the UI shows an empty database, trigger an RSS sync and refresh the UI once the status is `done`.

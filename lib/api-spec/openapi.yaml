@@ -11,9 +11,13 @@ tags:
   - name: health
     description: Health operations
   - name: episodes
-    description: DataGen podcast episodes
+    description: Podcast episodes
   - name: themes
     description: Themes and topics
+  - name: tools
+    description: Tools mentioned across episodes
+  - name: podcasts
+    description: Source podcasts
   - name: resources
     description: Resources mentioned across episodes
   - name: sync
@@ -64,6 +68,22 @@ paths:
           style: form
           explode: true
           description: Theme slugs to filter by (any match)
+        - in: query
+          name: tools
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+          description: Tool slugs to filter by (any match)
+        - in: query
+          name: podcasts
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+          description: Podcast slugs to filter by (any match)
         - in: query
           name: minDurationSec
           schema: { type: integer }
@@ -161,6 +181,36 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Theme"
+
+  /tools:
+    get:
+      operationId: listTools
+      tags: [tools]
+      summary: List all tools with episode counts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tool"
+
+  /podcasts:
+    get:
+      operationId: listPodcasts
+      tags: [podcasts]
+      summary: List all source podcasts with episode counts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Podcast"
 
   /resources:
     get:
@@ -260,12 +310,16 @@ components:
         - totalEpisodes
         - totalDurationSec
         - themesCount
+        - toolsCount
+        - podcastsCount
         - lastSyncAt
         - lastEpisodeAt
       properties:
         totalEpisodes: { type: integer }
         totalDurationSec: { type: integer }
         themesCount: { type: integer }
+        toolsCount: { type: integer }
+        podcastsCount: { type: integer }
         lastSyncAt:
           type: ["string", "null"]
           format: date-time
@@ -279,6 +333,23 @@ components:
       properties:
         slug: { type: string }
         name: { type: string }
+        count: { type: integer }
+
+    Tool:
+      type: object
+      required: [slug, name, count]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        count: { type: integer }
+
+    Podcast:
+      type: object
+      required: [slug, name, author, count]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        author: { type: string }
         count: { type: integer }
 
     Recommendation:
@@ -313,6 +384,9 @@ components:
       type: object
       required:
         - id
+        - podcastSlug
+        - podcastName
+        - podcastAuthor
         - title
         - pubDate
         - durationSec
@@ -320,9 +394,13 @@ components:
         - link
         - imageUrl
         - themes
+        - tools
         - language
       properties:
         id: { type: string }
+        podcastSlug: { type: string }
+        podcastName: { type: string }
+        podcastAuthor: { type: string }
         episodeNumber:
           type: ["integer", "null"]
         title: { type: string }
@@ -337,6 +415,9 @@ components:
         imageUrl: { type: string }
         language: { type: string }
         themes:
+          type: array
+          items: { type: string }
+        tools:
           type: array
           items: { type: string }
 

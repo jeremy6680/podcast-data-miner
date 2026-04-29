@@ -10,6 +10,8 @@ export interface Stats {
   totalEpisodes: number;
   totalDurationSec: number;
   themesCount: number;
+  toolsCount: number;
+  podcastsCount: number;
   /** @nullable */
   lastSyncAt: Date | null;
   /** @nullable */

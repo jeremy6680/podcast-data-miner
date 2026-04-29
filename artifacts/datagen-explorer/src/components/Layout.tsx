@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Database, Search, AudioLines, HardDrive, LayoutGrid, RotateCw, Library } from "lucide-react";
+import { Search, AudioLines, LayoutGrid, RotateCw, Library, Wrench } from "lucide-react";
 import { Button } from "./ui/button";
 import { useGetStats, useGetSyncStatus, useTriggerSync } from "@workspace/api-client-react";
 import { Badge } from "./ui/badge";
@@ -10,7 +10,7 @@ interface LayoutProps {
 }
 
 function SyncStatus() {
-  const { data: syncStatus } = useGetSyncStatus({ query: { refetchInterval: 2000 } });
+  const { data: syncStatus } = useGetSyncStatus({ query: { refetchInterval: 2000 } as any });
   const { mutate: triggerSync, isPending: isSyncing } = useTriggerSync();
 
   const handleSync = () => {
@@ -48,7 +48,7 @@ export function Layout({ children }: LayoutProps) {
             <div className="bg-primary text-primary-foreground p-1.5 rounded-md group-hover:bg-primary/90 transition-colors">
               <AudioLines className="w-5 h-5" />
             </div>
-            <span className="font-mono font-bold text-lg tracking-tight">DataGen Explorer</span>
+            <span className="font-mono font-bold text-lg tracking-tight">Podcast Data Miner</span>
           </Link>
           
           <nav className="flex items-center gap-6 text-sm font-medium">
@@ -59,6 +59,10 @@ export function Layout({ children }: LayoutProps) {
             <Link href="/themes" className={`${location.startsWith("/themes") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"} transition-colors flex items-center gap-2`}>
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden sm:inline">Thèmes</span>
+            </Link>
+            <Link href="/tools" className={`${location.startsWith("/tools") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"} transition-colors flex items-center gap-2`}>
+              <Wrench className="w-4 h-4" />
+              <span className="hidden sm:inline">Outils</span>
             </Link>
             <Link href="/resources" className={`${location.startsWith("/resources") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"} transition-colors flex items-center gap-2`}>
               <Library className="w-4 h-4" />
@@ -78,7 +82,7 @@ export function Layout({ children }: LayoutProps) {
 
       <footer className="border-t py-8 mt-auto bg-card">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>DataGen Explorer — Unofficial archive of the DataGen podcast.</p>
+          <p>Podcast Data Miner — Archives croisées de podcasts data, produit et IA.</p>
         </div>
       </footer>
     </div>

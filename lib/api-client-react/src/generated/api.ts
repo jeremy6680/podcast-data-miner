@@ -25,11 +25,13 @@ import type {
   HealthStatus,
   ListEpisodesParams,
   ListResourcesParams,
+  Podcast,
   ResourceListResponse,
   Stats,
   SyncRequest,
   SyncStatus,
   Theme,
+  Tool,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -40,13 +42,6 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
-
-type QueryOptions<TQueryFnData, TError, TData> = Omit<
-  UseQueryOptions<TQueryFnData, TError, TData>,
-  "queryKey"
-> & {
-  queryKey?: QueryKey;
-};
 
 /**
  * Returns server health status
@@ -73,7 +68,7 @@ export const getHealthCheckQueryOptions = <
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -108,7 +103,7 @@ export function useHealthCheck<
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -146,7 +141,7 @@ export const getGetStatsQueryOptions = <
   TData = Awaited<ReturnType<typeof getStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
@@ -177,7 +172,7 @@ export function useGetStats<
   TData = Awaited<ReturnType<typeof getStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getStats>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStatsQueryOptions(options);
@@ -196,7 +191,7 @@ export const getListEpisodesUrl = (params?: ListEpisodesParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-    const explodeParameters = ["themes"];
+    const explodeParameters = ["themes", "tools", "podcasts"];
 
     if (Array.isArray(value) && explodeParameters.includes(key)) {
       value.forEach((v) => {
@@ -237,7 +232,7 @@ export const getListEpisodesQueryOptions = <
 >(
   params?: ListEpisodesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listEpisodes>>,
       TError,
       TData
@@ -275,7 +270,7 @@ export function useListEpisodes<
 >(
   params?: ListEpisodesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listEpisodes>>,
       TError,
       TData
@@ -319,7 +314,7 @@ export const getGetEpisodeQueryOptions = <
 >(
   id: string,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getEpisode>>,
       TError,
       TData
@@ -362,7 +357,7 @@ export function useGetEpisode<
 >(
   id: string,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getEpisode>>,
       TError,
       TData
@@ -426,7 +421,7 @@ export const getGetRelatedEpisodesQueryOptions = <
   id: string,
   params?: GetRelatedEpisodesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getRelatedEpisodes>>,
       TError,
       TData
@@ -472,7 +467,7 @@ export function useGetRelatedEpisodes<
   id: string,
   params?: GetRelatedEpisodesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getRelatedEpisodes>>,
       TError,
       TData
@@ -511,7 +506,7 @@ export const getListThemesQueryOptions = <
   TData = Awaited<ReturnType<typeof listThemes>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof listThemes>>,
     TError,
     TData
@@ -546,7 +541,7 @@ export function useListThemes<
   TData = Awaited<ReturnType<typeof listThemes>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof listThemes>>,
     TError,
     TData
@@ -554,6 +549,146 @@ export function useListThemes<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListThemesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all tools with episode counts
+ */
+export const getListToolsUrl = () => {
+  return `/api/tools`;
+};
+
+export const listTools = async (options?: RequestInit): Promise<Tool[]> => {
+  return customFetch<Tool[]>(getListToolsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListToolsQueryKey = () => {
+  return [`/api/tools`] as const;
+};
+
+export const getListToolsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListToolsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTools>>> = ({
+    signal,
+  }) => listTools({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTools>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListToolsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTools>>
+>;
+export type ListToolsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tools with episode counts
+ */
+
+export function useListTools<
+  TData = Awaited<ReturnType<typeof listTools>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTools>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListToolsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all source podcasts with episode counts
+ */
+export const getListPodcastsUrl = () => {
+  return `/api/podcasts`;
+};
+
+export const listPodcasts = async (
+  options?: RequestInit,
+): Promise<Podcast[]> => {
+  return customFetch<Podcast[]>(getListPodcastsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPodcastsQueryKey = () => {
+  return [`/api/podcasts`] as const;
+};
+
+export const getListPodcastsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPodcasts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPodcasts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPodcastsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPodcasts>>> = ({
+    signal,
+  }) => listPodcasts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPodcasts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPodcastsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPodcasts>>
+>;
+export type ListPodcastsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all source podcasts with episode counts
+ */
+
+export function useListPodcasts<
+  TData = Awaited<ReturnType<typeof listPodcasts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPodcasts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPodcastsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -610,7 +745,7 @@ export const getListResourcesQueryOptions = <
 >(
   params?: ListResourcesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listResources>>,
       TError,
       TData
@@ -648,7 +783,7 @@ export function useListResources<
 >(
   params?: ListResourcesParams,
   options?: {
-    query?: QueryOptions<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listResources>>,
       TError,
       TData
@@ -775,7 +910,7 @@ export const getGetSyncStatusQueryOptions = <
   TData = Awaited<ReturnType<typeof getSyncStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getSyncStatus>>,
     TError,
     TData
@@ -810,7 +945,7 @@ export function useGetSyncStatus<
   TData = Awaited<ReturnType<typeof getSyncStatus>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: QueryOptions<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getSyncStatus>>,
     TError,
     TData

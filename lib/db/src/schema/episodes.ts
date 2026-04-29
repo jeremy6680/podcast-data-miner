@@ -11,6 +11,9 @@ export const episodesTable = pgTable(
   "episodes",
   {
     id: text("id").primaryKey(),
+    podcastSlug: text("podcast_slug").notNull().default("datagen"),
+    podcastName: text("podcast_name").notNull().default("DataGen"),
+    podcastAuthor: text("podcast_author").notNull().default("Robin Conquet"),
     episodeNumber: integer("episode_number"),
     title: text("title").notNull(),
     summary: text("summary"),
@@ -23,6 +26,7 @@ export const episodesTable = pgTable(
     imageUrl: text("image_url").notNull().default(""),
     language: text("language").notNull().default("fr"),
     themes: text("themes").array().notNull().default([]),
+    tools: text("tools").array().notNull().default([]),
     recommendations: jsonb("recommendations").notNull().default([]),
     chapters: jsonb("chapters").notNull().default([]),
     relatedLinks: jsonb("related_links").notNull().default([]),
@@ -39,6 +43,7 @@ export const episodesTable = pgTable(
   (t) => [
     index("episodes_pub_date_idx").on(t.pubDate),
     index("episodes_episode_number_idx").on(t.episodeNumber),
+    index("episodes_podcast_slug_idx").on(t.podcastSlug),
   ],
 );
 

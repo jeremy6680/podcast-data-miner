@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import type { SQL } from "drizzle-orm";
-import { and, asc, desc, eq, gte, lte, like, sql, ne, arrayOverlaps } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, like, sql, ne, arrayOverlaps, inArray } from "drizzle-orm";
 import { db, episodesTable } from "../lib/db";
 import { ListEpisodesQueryParams, GetRelatedEpisodesQueryParams } from "@workspace/api-zod";
 import { THEME_LABELS } from "../sync/themes";
+import { TOOL_LABELS } from "../sync/tools";
 import { themeLabelFromSlug } from "../lib/slug";
 
 const router: IRouter = Router();
@@ -25,6 +26,9 @@ function normalizeArrayQuery(
 function toSummary(e: typeof episodesTable.$inferSelect) {
   return {
     id: e.id,
+    podcastSlug: e.podcastSlug,
+    podcastName: e.podcastName,
+    podcastAuthor: e.podcastAuthor,
     episodeNumber: e.episodeNumber,
     title: e.title,
     summary: e.summary,
@@ -35,6 +39,7 @@ function toSummary(e: typeof episodesTable.$inferSelect) {
     imageUrl: e.imageUrl,
     language: e.language,
     themes: e.themes ?? [],
+    tools: e.tools ?? [],
   };
 }
 
@@ -51,15 +56,29 @@ function toFullEpisode(e: typeof episodesTable.$inferSelect) {
 
 router.get("/episodes", async (req, res) => {
   const parsed = ListEpisodesQueryParams.safeParse(
-    normalizeArrayQuery(req.query, ["themes"]),
+    normalizeArrayQuery(req.query, ["themes", "tools", "podcasts"]),
   );
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid query", details: parsed.error.issues });
     return;
   }
-  const { q, themes, minDurationSec, maxDurationSec, language, sortBy, sortOrder, limit, offset } = parsed.data;
+  const {
+    q,
+    themes,
+    tools,
+    podcasts,
+    minDurationSec,
+    maxDurationSec,
+    language,
+    sortBy,
+    sortOrder,
+    limit,
+    offset,
+  } = parsed.data;
 
   const themeSlugs: string[] = themes ?? [];
+  const toolSlugs: string[] = tools ?? [];
+  const podcastSlugs: string[] = podcasts ?? [];
 
   const conditions: SQL[] = [];
   if (q && q.trim().length) {
@@ -68,6 +87,12 @@ router.get("/episodes", async (req, res) => {
   }
   if (themeSlugs.length > 0) {
     conditions.push(arrayOverlaps(episodesTable.themes, themeSlugs));
+  }
+  if (toolSlugs.length > 0) {
+    conditions.push(arrayOverlaps(episodesTable.tools, toolSlugs));
+  }
+  if (podcastSlugs.length > 0) {
+    conditions.push(inArray(episodesTable.podcastSlug, podcastSlugs));
   }
   if (typeof minDurationSec === "number") conditions.push(gte(episodesTable.durationSec, minDurationSec));
   if (typeof maxDurationSec === "number") conditions.push(lte(episodesTable.durationSec, maxDurationSec));
@@ -177,6 +202,39 @@ router.get("/themes", async (_req, res) => {
   res.json(themes);
 });
 
+router.get("/tools", async (_req, res) => {
+  const rows = await db
+    .select({
+      slug: sql<string>`unnest(${episodesTable.tools})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(episodesTable)
+    .groupBy(sql`unnest(${episodesTable.tools})`)
+    .orderBy(sql`count(*) desc`);
+
+  const tools = rows.map((r) => ({
+    slug: r.slug,
+    name: TOOL_LABELS[r.slug] ?? themeLabelFromSlug(r.slug),
+    count: Number(r.count),
+  }));
+  res.json(tools);
+});
+
+router.get("/podcasts", async (_req, res) => {
+  const rows = await db
+    .select({
+      slug: episodesTable.podcastSlug,
+      name: episodesTable.podcastName,
+      author: episodesTable.podcastAuthor,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(episodesTable)
+    .groupBy(episodesTable.podcastSlug, episodesTable.podcastName, episodesTable.podcastAuthor)
+    .orderBy(sql`count(*) desc`);
+
+  res.json(rows.map((r) => ({ ...r, count: Number(r.count) })));
+});
+
 router.get("/stats", async (_req, res) => {
   const [agg] = await db
     .select({
@@ -192,6 +250,18 @@ router.get("/stats", async (_req, res) => {
     })
     .from(sql`(select unnest(${episodesTable.themes}) as t from ${episodesTable}) sub`);
 
+  const [{ toolsCount }] = await db
+    .select({
+      toolsCount: sql<number>`count(distinct t)::int`,
+    })
+    .from(sql`(select unnest(${episodesTable.tools}) as t from ${episodesTable}) sub`);
+
+  const [{ podcastsCount }] = await db
+    .select({
+      podcastsCount: sql<number>`count(distinct ${episodesTable.podcastSlug})::int`,
+    })
+    .from(episodesTable);
+
   // Pull last sync time
   const { syncStateTable } = await import("../lib/db");
   const syncRows = await db.select().from(syncStateTable).limit(1);
@@ -201,6 +271,8 @@ router.get("/stats", async (_req, res) => {
     totalEpisodes: agg?.totalEpisodes ?? 0,
     totalDurationSec: agg?.totalDurationSec ?? 0,
     themesCount: themesCount ?? 0,
+    toolsCount: toolsCount ?? 0,
+    podcastsCount: podcastsCount ?? 0,
     lastSyncAt: lastSyncAt ? new Date(lastSyncAt).toISOString() : null,
     lastEpisodeAt: agg?.lastEpisodeAt ? new Date(agg.lastEpisodeAt).toISOString() : null,
   });

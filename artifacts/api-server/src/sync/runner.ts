@@ -4,6 +4,7 @@ import { db, episodesTable, syncStateTable } from "../lib/db";
 import { logger } from "../lib/logger";
 import { fetchAndParseFeed, type ParsedItem } from "./rss";
 import { extractThemesForEpisode } from "./themes";
+import { extractToolsForEpisode } from "./tools";
 
 export type SyncStateValue =
   | "idle"
@@ -94,21 +95,21 @@ async function runSync(opts: SyncOptions, startedAt: Date) {
       message: `Analyse de ${items.length} épisodes…`,
     });
 
-    // Build episode-number → id map for relatedLinks resolution
-    const numberToId = new Map<number, string>();
+    // Build podcast + episode-number → id map for relatedLinks resolution.
+    const numberToId = new Map<string, string>();
     for (const it of items) {
-      if (it.episodeNumber != null) numberToId.set(it.episodeNumber, it.id);
+      if (it.episodeNumber != null) numberToId.set(`${it.podcastSlug}:${it.episodeNumber}`, it.id);
     }
 
     // Resolve related episode ids
     for (const it of items) {
-      it.relatedLinks = it.relatedLinks.map((l) => ({
-        ...l,
-        episodeId:
-          l.episodeNumber != null && numberToId.has(l.episodeNumber)
-            ? numberToId.get(l.episodeNumber)!
-            : null,
-      }));
+      it.relatedLinks = it.relatedLinks.map((l) => {
+        const key = l.episodeNumber != null ? `${it.podcastSlug}:${l.episodeNumber}` : null;
+        return {
+          ...l,
+          episodeId: key && numberToId.has(key) ? numberToId.get(key)! : null,
+        };
+      });
     }
 
     // Upsert all episodes (without themes initially)
@@ -208,6 +209,9 @@ async function upsertAll(items: ParsedItem[]) {
         slice.map((it) => ({
           id: it.id,
           episodeNumber: it.episodeNumber,
+          podcastSlug: it.podcastSlug,
+          podcastName: it.podcastName,
+          podcastAuthor: it.podcastAuthor,
           title: it.title,
           summary: it.summary,
           descriptionHtml: it.descriptionHtml,
@@ -219,6 +223,7 @@ async function upsertAll(items: ParsedItem[]) {
           imageUrl: it.imageUrl,
           language: it.language,
           themes: [],
+          tools: extractToolsForEpisode(it),
           recommendations: it.recommendations,
           chapters: it.chapters,
           relatedLinks: it.relatedLinks,
@@ -229,6 +234,9 @@ async function upsertAll(items: ParsedItem[]) {
         target: episodesTable.id,
         set: {
           episodeNumber: sql`excluded.episode_number`,
+          podcastSlug: sql`excluded.podcast_slug`,
+          podcastName: sql`excluded.podcast_name`,
+          podcastAuthor: sql`excluded.podcast_author`,
           title: sql`excluded.title`,
           summary: sql`excluded.summary`,
           descriptionHtml: sql`excluded.description_html`,
@@ -239,6 +247,7 @@ async function upsertAll(items: ParsedItem[]) {
           link: sql`excluded.link`,
           imageUrl: sql`excluded.image_url`,
           language: sql`excluded.language`,
+          tools: sql`excluded.tools`,
           recommendations: sql`excluded.recommendations`,
           chapters: sql`excluded.chapters`,
           relatedLinks: sql`excluded.related_links`,

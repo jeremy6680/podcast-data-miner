@@ -5,6 +5,40 @@ import type { InsertEpisode } from "../lib/db";
 export const DATAGEN_RSS_URL =
   "https://feeds.acast.com/public/shows/5fa58959e64011214fbf140d";
 
+export interface PodcastFeedConfig {
+  slug: string;
+  name: string;
+  author: string;
+  url: string;
+}
+
+export const PODCAST_FEEDS: PodcastFeedConfig[] = [
+  {
+    slug: "datagen",
+    name: "DataGen",
+    author: "Robin Conquet",
+    url: DATAGEN_RSS_URL,
+  },
+  {
+    slug: "analytics-engineering-podcast",
+    name: "The Analytics Engineering Podcast",
+    author: "dbt Labs, Inc.",
+    url: "https://rss.libsyn.com/shows/352538/destinations/2880773.xml",
+  },
+  {
+    slug: "lennys-podcast",
+    name: "Lenny's Podcast",
+    author: "Lenny Rachitsky",
+    url: "https://api.substack.com/feed/podcast/10845.rss",
+  },
+  {
+    slug: "ai-engineering-podcast",
+    name: "AI Engineering Podcast",
+    author: "Christophe Blefari & Julien Hurault",
+    url: "https://pub-4ff2e85593bd4bee9df83cd32bec10ca.r2.dev/feed/podcast.xml",
+  },
+];
+
 interface RawItem {
   guid?: string | { "#text"?: string };
   title?: string;
@@ -18,10 +52,20 @@ interface RawItem {
   "itunes:episode"?: number | string;
   "itunes:summary"?: string;
   "itunes:subtitle"?: string;
+  language?: string;
 }
 
 interface RawFeed {
-  rss?: { channel?: { item?: RawItem | RawItem[]; "itunes:image"?: { "@_href"?: string }; image?: { url?: string }; language?: string } };
+  rss?: {
+    channel?: {
+      item?: RawItem | RawItem[];
+      title?: string;
+      "itunes:author"?: string;
+      "itunes:image"?: { "@_href"?: string };
+      image?: { url?: string };
+      language?: string;
+    };
+  };
 }
 
 const parser = new XMLParser({
@@ -33,7 +77,10 @@ const parser = new XMLParser({
   parseTagValue: false,
 });
 
-export interface ParsedItem extends Omit<InsertEpisode, "createdAt" | "updatedAt" | "themesExtractedAt"> {
+export interface ParsedItem extends Omit<
+  InsertEpisode,
+  "createdAt" | "updatedAt" | "themesExtractedAt"
+> {
   recommendations: ReturnType<typeof parseDescription>["recommendations"];
   chapters: ReturnType<typeof parseDescription>["chapters"];
   relatedLinks: ReturnType<typeof parseDescription>["relatedLinks"];
@@ -64,8 +111,14 @@ function parseDuration(raw: unknown): number {
 
 function stableId(guid: string, link: string, title: string): string {
   if (guid) return guid;
+  if (title) return `${link || "episode"}:${title}`;
   if (link) return link;
   return title;
+}
+
+function normalizeLanguageCode(value: unknown, fallback = "fr"): string {
+  const raw = getText(value).trim() || fallback;
+  return raw.slice(0, 2).toLowerCase();
 }
 
 export interface FetchResult {
@@ -75,14 +128,27 @@ export interface FetchResult {
 }
 
 export async function fetchAndParseFeed(): Promise<FetchResult> {
-  const response = await fetch(DATAGEN_RSS_URL, {
+  const results = await Promise.all(
+    PODCAST_FEEDS.map((feed) => fetchAndParseOneFeed(feed)),
+  );
+  return {
+    items: results.flatMap((r) => r.items),
+    channelImage: results[0]?.channelImage ?? "",
+    language: results[0]?.language ?? "fr",
+  };
+}
+
+async function fetchAndParseOneFeed(
+  feed: PodcastFeedConfig,
+): Promise<FetchResult> {
+  const response = await fetch(feed.url, {
     headers: {
-      "user-agent": "DataGenExplorer/1.0 (+https://replit.com)",
+      "user-agent": "PodcastDataMiner/1.0 (+https://replit.com)",
       accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
     },
   });
   if (!response.ok) {
-    throw new Error(`RSS fetch failed: ${response.status}`);
+    throw new Error(`RSS fetch failed for ${feed.name}: ${response.status}`);
   }
   const xml = await response.text();
   const data = parser.parse(xml) as RawFeed;
@@ -91,7 +157,7 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
 
   const channelImage =
     channel["itunes:image"]?.["@_href"] ?? channel.image?.url ?? "";
-  const language = (channel.language ?? "fr").slice(0, 2).toLowerCase();
+  const language = normalizeLanguageCode(channel.language, "fr");
 
   const rawItems = Array.isArray(channel.item)
     ? channel.item
@@ -100,10 +166,12 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
       : [];
 
   const items: ParsedItem[] = rawItems.map((item) => {
-    const guid = typeof item.guid === "string" ? item.guid : (item.guid?.["#text"] ?? "");
+    const guid =
+      typeof item.guid === "string" ? item.guid : (item.guid?.["#text"] ?? "");
     const title = getText(item.title).trim();
     const link = getText(item.link).trim();
-    const id = stableId(guid, link, title);
+    const rawId = stableId(guid, link, title);
+    const id = feed.slug === "datagen" ? rawId : `${feed.slug}:${rawId}`;
 
     const descriptionHtml = (
       getText(item["content:encoded"]) || getText(item.description)
@@ -128,7 +196,15 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
 
     const sections = parseDescription(descriptionHtml);
 
+    const itemLanguage = inferEpisodeLanguage(
+      normalizeLanguageCode(item.language, language),
+      title,
+      descriptionText,
+    );
+
     const searchText = [
+      feed.name,
+      feed.author,
       title,
       summary ?? "",
       descriptionText,
@@ -141,6 +217,9 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
 
     return {
       id,
+      podcastSlug: feed.slug,
+      podcastName: feed.name,
+      podcastAuthor: feed.author,
       episodeNumber,
       title,
       summary,
@@ -151,8 +230,9 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
       audioUrl,
       link,
       imageUrl,
-      language,
+      language: itemLanguage,
       themes: [],
+      tools: [],
       recommendations: sections.recommendations,
       chapters: sections.chapters,
       relatedLinks: sections.relatedLinks,
@@ -161,6 +241,33 @@ export async function fetchAndParseFeed(): Promise<FetchResult> {
   });
 
   return { items, channelImage, language };
+}
+
+function inferEpisodeLanguage(
+  defaultLanguage: string,
+  title: string,
+  descriptionText: string,
+): string {
+  const normalizedDefault = defaultLanguage.slice(0, 2).toLowerCase() || "fr";
+  const text = `${title}\n${descriptionText}`;
+  if (
+    /🇪🇺|\b(we cover|what is|their stack|other episodes you should love|more data content|support the podcast)\b/i.test(
+      text,
+    )
+  ) {
+    return "en";
+  }
+  if (normalizedDefault === "en") return "en";
+  const englishMatches =
+    text.match(
+      /\b(the|and|with|what|why|how|their|data|team|career|product|growth|engineering)\b/gi,
+    )?.length ?? 0;
+  const frenchMatches =
+    text.match(
+      /\b(le|la|les|des|avec|pour|dans|une|vous|nous|équipe|donnees|données)\b/gi,
+    )?.length ?? 0;
+  if (englishMatches >= 8 && englishMatches > frenchMatches * 1.5) return "en";
+  return normalizedDefault;
 }
 
 // ---------- Description parsing ----------
@@ -176,11 +283,17 @@ type RecommendationKind =
 export interface ParsedSections {
   recommendations: { title: string; url: string; kind: RecommendationKind }[];
   chapters: { timeSec: number; title: string }[];
-  relatedLinks: { title: string; url: string; episodeNumber: number | null; episodeId: string | null }[];
+  relatedLinks: {
+    title: string;
+    url: string;
+    episodeNumber: number | null;
+    episodeId: string | null;
+  }[];
 }
 
 const SECTION_PATTERNS = {
-  resources: /(?:📚|📖|📗|📘)?\s*(?:RESOURCES?|RESSOURCES?|R[EÉ]F[EÉ]RENCES?|MENTIONS?)/i,
+  resources:
+    /(?:📚|📖|📗|📘)?\s*(?:RESOURCES?|RESSOURCES?|R[EÉ]F[EÉ]RENCES?|MENTIONS?)/i,
   chapters: /(?:🎬|⏱|⏰)?\s*(?:CHAPTERS?|CHAPITRES?|TIMELINES?|TIMELINE)/i,
   related:
     /(?:🤩|❤|♥|🎧|👉)?\s*(?:OTHER\s+EPISODES?|EPISODES?\s+YOU\s+SHOULD\s+LOVE|EPISODES?\s+RELATED|EPISODES?\s+(?:[AÀ]\s+)?(?:[EÉ]COUTER|D[EÉ]COUVRIR)|AUTRES?\s+EPISODES?|[AÀ]\s+[EÉ]COUTER|POUR\s+ALLER\s+PLUS\s+LOIN|RELATED\s+EPISODES?)/i,
@@ -189,10 +302,13 @@ const SECTION_PATTERNS = {
 function classifyKind(title: string, url: string): RecommendationKind {
   const haystack = `${title} ${url}`.toLowerCase();
   if (/youtu\.?be|vimeo|youtube/.test(haystack)) return "video";
-  if (/podcast|acast|spotify|apple\.com\/.*podcast/.test(haystack)) return "podcast";
-  if (/linkedin\.com\/in\/|twitter\.com\/|x\.com\//.test(haystack)) return "profile";
+  if (/podcast|acast|spotify|apple\.com\/.*podcast/.test(haystack))
+    return "podcast";
+  if (/linkedin\.com\/in\/|twitter\.com\/|x\.com\//.test(haystack))
+    return "profile";
   if (/amazon|goodreads|fnac|babelio|book|livre/.test(haystack)) return "book";
-  if (/medium|substack|blog|article|essay|paper|wiki/.test(haystack)) return "article";
+  if (/medium|substack|blog|article|essay|paper|wiki/.test(haystack))
+    return "article";
   return "other";
 }
 
@@ -223,7 +339,11 @@ export function parseDescription(html: string): ParsedSections {
     .filter(Boolean);
 
   let currentSection: "none" | "resources" | "chapters" | "related" = "none";
-  const out: ParsedSections = { recommendations: [], chapters: [], relatedLinks: [] };
+  const out: ParsedSections = {
+    recommendations: [],
+    chapters: [],
+    relatedLinks: [],
+  };
 
   for (const segment of lines) {
     const $seg = cheerio.load(`<div>${segment}</div>`);
@@ -246,7 +366,10 @@ export function parseDescription(html: string): ParsedSections {
     if (currentSection === "chapters") {
       const ts = parseTimecode(text);
       if (ts != null) {
-        const title = text.replace(/\s*\(?\d{1,2}:\d{2}(?::\d{2})?\)?\s*[-–—:.]?\s*/, " ").replace(/^[-–—:.\s]+|[-–—:.\s]+$/g, "").trim();
+        const title = text
+          .replace(/\s*\(?\d{1,2}:\d{2}(?::\d{2})?\)?\s*[-–—:.]?\s*/, " ")
+          .replace(/^[-–—:.\s]+|[-–—:.\s]+$/g, "")
+          .trim();
         out.chapters.push({ timeSec: ts, title: title || text });
       }
       continue;
@@ -262,12 +385,17 @@ export function parseDescription(html: string): ParsedSections {
     if (currentSection === "resources") {
       if (links.length === 0) continue;
       for (const l of links) {
-        out.recommendations.push({ title: l.title, url: l.url, kind: classifyKind(l.title, l.url) });
+        out.recommendations.push({
+          title: l.title,
+          url: l.url,
+          kind: classifyKind(l.title, l.url),
+        });
       }
     } else if (currentSection === "related") {
       if (links.length === 0) continue;
       for (const l of links) {
-        const numMatch = l.title.match(/#?(\d{1,3})\b/) ?? l.url.match(/#?(\d{1,3})\b/);
+        const numMatch =
+          l.title.match(/#?(\d{1,3})\b/) ?? l.url.match(/#?(\d{1,3})\b/);
         out.relatedLinks.push({
           title: l.title,
           url: l.url,

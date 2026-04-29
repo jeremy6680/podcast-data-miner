@@ -17,6 +17,14 @@ export type ListEpisodesParams = {
    * Theme slugs to filter by (any match)
    */
   themes?: string[];
+  /**
+   * Tool slugs to filter by (any match)
+   */
+  tools?: string[];
+  /**
+   * Podcast slugs to filter by (any match)
+   */
+  podcasts?: string[];
   minDurationSec?: number;
   maxDurationSec?: number;
   /**
