@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { PageHero } from "@/components/PageHero";
 import { useListResources, useListThemes } from "@workspace/api-client-react";
 import type { Resource, ListResourcesKind, ListResourcesSortBy, ResourceMention } from "@workspace/api-client-react";
 import { useState, useEffect } from "react";
@@ -86,22 +87,12 @@ export default function Resources() {
 
   return (
     <Layout>
-      <section className="bg-card border-b py-10 lg:py-14">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider font-medium text-primary mb-3">
-              <Library className="w-4 h-4" />
-              Ressources
-            </div>
-            <h1 className="text-4xl lg:text-5xl font-mono font-bold tracking-tight mb-3">
-              Toutes les ressources citées dans les <span className="text-primary">podcasts suivis</span>
-            </h1>
-            <p className="text-base text-muted-foreground max-w-2xl">
-              Livres, podcasts, articles, vidéos et profils mentionnés au fil des épisodes, agrégés, dédupliqués et triables.
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        icon={Library}
+        label="Ressources"
+        title={<>Toutes les ressources citées dans les <span className="text-primary">podcasts suivis</span></>}
+        description="Livres, podcasts, articles, vidéos et profils mentionnés au fil des épisodes, agrégés, dédupliqués et triables."
+      />
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">

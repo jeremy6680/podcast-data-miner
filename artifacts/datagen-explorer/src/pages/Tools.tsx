@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useListTools } from "@workspace/api-client-react";
 import { Layout } from "@/components/Layout";
+import { PageHero } from "@/components/PageHero";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,18 +24,14 @@ export default function Tools() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        <div className="mb-10 text-center max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider font-medium text-primary mb-3">
-            <Wrench className="w-4 h-4" />
-            Outils
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Outils</h1>
-          <p className="text-xl text-muted-foreground">
-            Retrouvez les épisodes par outil, plateforme ou framework cité.
-          </p>
-        </div>
+      <PageHero
+        icon={Wrench}
+        label="Outils"
+        title={<>Tous les outils cités dans les <span className="text-primary">podcasts suivis</span></>}
+        description="Plateformes, frameworks, apps et services mentionnés au fil des épisodes, regroupés pour retrouver rapidement les conversations associées."
+      />
 
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 border-b pb-4">
           <div className="text-sm font-medium text-muted-foreground">
             {tools?.length || 0} outils au total

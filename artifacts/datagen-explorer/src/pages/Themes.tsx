@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useListThemes } from "@workspace/api-client-react";
 import { Layout } from "@/components/Layout";
+import { PageHero } from "@/components/PageHero";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowDownAZ, Hash } from "lucide-react";
+import { ArrowRight, ArrowDownAZ, Hash, Tags } from "lucide-react";
 
 export default function Themes() {
   const { data: themes, isLoading } = useListThemes();
@@ -24,14 +25,14 @@ export default function Themes() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        <div className="mb-10 text-center max-w-2xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Thèmes</h1>
-          <p className="text-xl text-muted-foreground">
-            Explorez les épisodes par sujet.
-          </p>
-        </div>
+      <PageHero
+        icon={Tags}
+        label="Thèmes"
+        title={<>Tous les thèmes abordés dans les <span className="text-primary">épisodes suivis</span></>}
+        description="Sujets, tendances et angles récurrents extraits des conversations pour explorer les épisodes par centre d'intérêt."
+      />
 
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 border-b pb-4">
           <div className="text-sm font-medium text-muted-foreground">
             {themes?.length || 0} thèmes au total
