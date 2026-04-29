@@ -441,15 +441,25 @@ export interface AggregateResourcesInput {
   offset?: number;
 }
 
-export async function aggregateResources(input: AggregateResourcesInput) {
+type ResourceEpisodeRow = {
+  id: string;
+  episodeNumber: number | null;
+  title: string;
+  pubDate: Date;
+  themes: string[] | null;
+  recommendations: unknown;
+};
+
+export function aggregateResourcesFromEpisodes(
+  rows: ResourceEpisodeRow[],
+  input: AggregateResourcesInput,
+) {
   const q = input.q;
   const kind = input.kind;
   const themes = input.themes;
   const sortBy = input.sortBy ?? "mentions";
   const limit = input.limit ?? 50;
   const offset = input.offset ?? 0;
-
-  const rows = await db.select().from(episodesTable);
 
   const map = new Map<string, Aggregated>();
 
@@ -556,6 +566,11 @@ export async function aggregateResources(input: AggregateResourcesInput) {
   const items = sorted.slice(offset, offset + limit);
 
   return { items, total, limit, offset, kindCounts };
+}
+
+export async function aggregateResources(input: AggregateResourcesInput) {
+  const rows = await db.select().from(episodesTable);
+  return aggregateResourcesFromEpisodes(rows, input);
 }
 
 router.get("/resources", async (req, res) => {

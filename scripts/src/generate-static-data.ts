@@ -77,15 +77,30 @@ async function main() {
   );
 
   episodes.sort((a, b) => b.pubDate.localeCompare(a.pubDate));
+  process.env.DATABASE_URL ??= "postgres://static-build:static-build@localhost:5432/static-build";
+  const { aggregateResourcesFromEpisodes } = await import(
+    "../../artifacts/api-server/src/routes/resources"
+  );
+  const resources = aggregateResourcesFromEpisodes(
+    episodes.map((episode) => ({
+      id: episode.id,
+      episodeNumber: episode.episodeNumber ?? null,
+      title: episode.title,
+      pubDate: new Date(episode.pubDate),
+      themes: episode.themes,
+      recommendations: episode.recommendations,
+    })),
+    { limit: Number.MAX_SAFE_INTEGER, offset: 0 },
+  ).items;
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(
     outputPath,
-    `${JSON.stringify({ generatedAt: new Date().toISOString(), episodes }, null, 2)}\n`,
+    `${JSON.stringify({ generatedAt: new Date().toISOString(), episodes, resources }, null, 2)}\n`,
     "utf8",
   );
 
-  console.log(`Generated ${episodes.length} episodes at ${outputPath}`);
+  console.log(`Generated ${episodes.length} episodes and ${resources.length} resources at ${outputPath}`);
 }
 
 main().catch((error) => {

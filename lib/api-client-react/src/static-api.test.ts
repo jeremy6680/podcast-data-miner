@@ -50,6 +50,26 @@ const catalog: StaticDataCatalog = {
       relatedLinks: [],
     },
   ],
+  resources: [
+    {
+      url: "https://amazon.fr/example",
+      title: "High Output Management (Andrew Grove)",
+      kind: "book",
+      domain: "amazon.fr",
+      mentionCount: 1,
+      firstMentionAt: "2026-04-20T00:00:00.000Z",
+      lastMentionAt: "2026-04-20T00:00:00.000Z",
+      themes: ["data-engineering"],
+      mentions: [
+        {
+          episodeId: "ep-1",
+          episodeNumber: 1,
+          episodeTitle: "Data Engineering avec Airflow",
+          episodePubDate: "2026-04-20T00:00:00.000Z",
+        },
+      ],
+    },
+  ],
 };
 
 test("static API lists episodes with query filters, sort and pagination", async () => {
@@ -71,4 +91,21 @@ test("static API returns detailed episodes by id", async () => {
 
   assert.equal(result.id, "ep-2");
   assert.equal(result.descriptionText, "Analytics");
+});
+
+test("static API serves precomputed normalized resources", async () => {
+  const staticFetch = createStaticApiFetch(async () => catalog);
+
+  const result = await staticFetch("/api/resources?kind=book");
+
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0]?.title, "High Output Management (Andrew Grove)");
+  assert.deepEqual(result.kindCounts, {
+    book: 1,
+    podcast: 0,
+    video: 0,
+    article: 0,
+    profile: 0,
+    other: 0,
+  });
 });

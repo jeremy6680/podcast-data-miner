@@ -30,6 +30,7 @@ export type StaticEpisode = {
 export type StaticDataCatalog = {
   generatedAt: string;
   episodes: StaticEpisode[];
+  resources?: StaticResource[];
 };
 
 type StaticListResponse<T> = {
@@ -189,8 +190,55 @@ function listResources(
   catalog: StaticDataCatalog,
   search: URLSearchParams,
 ): StaticListResponse<StaticResource> & { kindCounts: Record<string, number> } {
+  const allResources = catalog.resources
+    ? catalog.resources.map((resource) => ({
+        ...resource,
+        themes: [...resource.themes],
+        mentions: [...resource.mentions],
+      }))
+    : buildResourcesFromEpisodes(catalog.episodes);
+
+  const q = search.get("q")?.trim().toLowerCase() ?? "";
+  const themes = getRepeated(search, "themes");
+  const kind = search.get("kind");
+  const sortBy = search.get("sortBy") ?? "mentions";
+  const limit = parsePositiveInt(search.get("limit"), DEFAULT_LIMIT);
+  const offset = parsePositiveInt(search.get("offset"), 0);
+
+  const baseFiltered = allResources.filter((resource) => {
+    if (q && !`${resource.title} ${resource.domain ?? ""}`.toLowerCase().includes(q)) return false;
+    if (!includesAllOrAny(resource.themes, themes)) return false;
+    return true;
+  });
+
+  const kindCounts: Record<string, number> = { book: 0, podcast: 0, video: 0, article: 0, profile: 0, other: 0 };
+  for (const resource of baseFiltered) {
+    kindCounts[resource.kind] = (kindCounts[resource.kind] ?? 0) + 1;
+  }
+
+  const filtered = kind ? baseFiltered.filter((resource) => resource.kind === kind) : baseFiltered;
+  filtered.sort((a, b) => {
+    if (sortBy === "title") return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
+    if (sortBy === "recent") return b.lastMentionAt.localeCompare(a.lastMentionAt) || b.mentionCount - a.mentionCount;
+    return b.mentionCount - a.mentionCount || b.lastMentionAt.localeCompare(a.lastMentionAt);
+  });
+
+  for (const resource of filtered) {
+    resource.mentions.sort((a, b) => b.episodePubDate.localeCompare(a.episodePubDate));
+  }
+
+  return {
+    items: filtered.slice(offset, offset + limit),
+    total: filtered.length,
+    limit,
+    offset,
+    kindCounts,
+  };
+}
+
+function buildResourcesFromEpisodes(episodes: StaticEpisode[]): StaticResource[] {
   const map = new Map<string, StaticResource>();
-  for (const episode of catalog.episodes) {
+  for (const episode of episodes) {
     for (const rec of episode.recommendations) {
       if (!rec.url || !rec.title) continue;
       const key = rec.url.toLowerCase();
@@ -224,43 +272,7 @@ function listResources(
       }
     }
   }
-
-  const q = search.get("q")?.trim().toLowerCase() ?? "";
-  const themes = getRepeated(search, "themes");
-  const kind = search.get("kind");
-  const sortBy = search.get("sortBy") ?? "mentions";
-  const limit = parsePositiveInt(search.get("limit"), DEFAULT_LIMIT);
-  const offset = parsePositiveInt(search.get("offset"), 0);
-
-  const baseFiltered = Array.from(map.values()).filter((resource) => {
-    if (q && !`${resource.title} ${resource.domain ?? ""}`.toLowerCase().includes(q)) return false;
-    if (!includesAllOrAny(resource.themes, themes)) return false;
-    return true;
-  });
-
-  const kindCounts: Record<string, number> = { book: 0, podcast: 0, video: 0, article: 0, profile: 0, other: 0 };
-  for (const resource of baseFiltered) {
-    kindCounts[resource.kind] = (kindCounts[resource.kind] ?? 0) + 1;
-  }
-
-  const filtered = kind ? baseFiltered.filter((resource) => resource.kind === kind) : baseFiltered;
-  filtered.sort((a, b) => {
-    if (sortBy === "title") return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
-    if (sortBy === "recent") return b.lastMentionAt.localeCompare(a.lastMentionAt) || b.mentionCount - a.mentionCount;
-    return b.mentionCount - a.mentionCount || b.lastMentionAt.localeCompare(a.lastMentionAt);
-  });
-
-  for (const resource of filtered) {
-    resource.mentions.sort((a, b) => b.episodePubDate.localeCompare(a.episodePubDate));
-  }
-
-  return {
-    items: filtered.slice(offset, offset + limit),
-    total: filtered.length,
-    limit,
-    offset,
-    kindCounts,
-  };
+  return Array.from(map.values());
 }
 
 export function createStaticApiFetch(
