@@ -125,6 +125,33 @@ curl -X POST http://localhost:19899/api/sync \
   -d '{"extractThemes": false}'
 ```
 
+## Static Netlify Build
+
+The app can also run as a static site without the Express API or PostgreSQL at
+runtime. A local script fetches the RSS feeds and writes a catalog consumed by
+the frontend:
+
+```bash
+# Generate artifacts/datagen-explorer/public/static-data.json
+pnpm run refresh:static
+
+# Faster refresh without AI/provider theme extraction
+pnpm run refresh:static -- --no-themes
+
+# Build the frontend so /api calls are served from the static catalog
+pnpm run build:static
+```
+
+Netlify is configured in `netlify.toml` to run:
+
+```bash
+pnpm run refresh:static && pnpm run build:static
+```
+
+If you prefer the Git-based workflow, run `pnpm run refresh:static` locally,
+commit the generated JSON, and change the Netlify build command to only
+`pnpm run build:static`.
+
 ## Useful Commands
 
 ```bash

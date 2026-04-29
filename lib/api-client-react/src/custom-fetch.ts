@@ -1,3 +1,5 @@
+import { createStaticApiFetch, type StaticDataCatalog } from "./static-api";
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };
@@ -17,6 +19,9 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _staticDataUrl: string | null = null;
+let _staticDataPromise: Promise<StaticDataCatalog> | null = null;
+let _staticApiFetch: ReturnType<typeof createStaticApiFetch> | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +47,28 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Enable static API emulation from a generated catalog JSON file.
+ *
+ * When configured, browser requests to `/api/...` are answered locally from
+ * this file instead of hitting a runtime API server. Pass `null` to disable.
+ */
+export function setStaticDataUrl(url: string | null): void {
+  _staticDataUrl = url;
+  _staticDataPromise = null;
+  _staticApiFetch = url
+    ? createStaticApiFetch(async () => {
+        _staticDataPromise ??= fetch(url).then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Static data fetch failed: HTTP ${response.status}`);
+          }
+          return (await response.json()) as StaticDataCatalog;
+        });
+        return _staticDataPromise;
+      })
+    : null;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -326,6 +353,13 @@ export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
 ): Promise<T> {
+  if (_staticApiFetch) {
+    const url = resolveUrl(input);
+    if (url.startsWith("/api/") || url === "/api") {
+      return (await _staticApiFetch(input, options)) as T;
+    }
+  }
+
   input = applyBaseUrl(input);
   const { responseType = "auto", headers: headersInit, ...init } = options;
 

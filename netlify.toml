@@ -1,0 +1,8 @@
+[build]
+  command = "pnpm run refresh:static && pnpm run build:static"
+  publish = "artifacts/datagen-explorer/dist/public"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
