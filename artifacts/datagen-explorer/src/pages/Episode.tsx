@@ -28,6 +28,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDurationFromSeconds, formatRelativeDateFR } from "@/lib/format";
+import { getListeningLinks } from "@/lib/listening-links";
 
 function formatTimecode(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -129,6 +130,12 @@ export default function Episode() {
     list.push(rec);
     groupedRecommendations[rec.kind] = list;
   }
+  const listeningLinks = getListeningLinks({
+    title: episode.title,
+    podcastName: episode.podcastName,
+    link: episode.link,
+    descriptionHtml: episode.descriptionHtml,
+  });
 
   return (
     <Layout>
@@ -211,21 +218,41 @@ export default function Episode() {
               </div>
             )}
 
-            {episode.audioUrl && (
+            {(episode.audioUrl || listeningLinks.length > 0) && (
               <Card className="bg-card shadow-sm border-border">
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-primary/10 text-primary p-3 rounded-full flex-shrink-0">
-                    <Play className="w-5 h-5 fill-current" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <audio
-                      ref={audioRef}
-                      controls
-                      preload="none"
-                      src={episode.audioUrl}
-                      className="w-full h-10 outline-none"
-                    />
-                  </div>
+                <CardContent className="p-4 space-y-4">
+                  {episode.audioUrl && (
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary/10 text-primary p-3 rounded-full flex-shrink-0">
+                        <Play className="w-5 h-5 fill-current" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <audio
+                          ref={audioRef}
+                          controls
+                          preload="none"
+                          src={episode.audioUrl}
+                          className="w-full h-10 outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {listeningLinks.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Écouter sur
+                      </span>
+                      {listeningLinks.map((link) => (
+                        <Button key={`${link.platform}-${link.url}`} variant="outline" size="sm" asChild>
+                          <a href={link.url} target="_blank" rel="noopener noreferrer">
+                            {link.label}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
