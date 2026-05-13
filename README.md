@@ -135,6 +135,9 @@ the frontend:
 # Generate artifacts/datagen-explorer/public/static-data.json
 pnpm run refresh:static
 
+# Refresh the catalog and validate the static frontend build
+pnpm run refresh:static:checked
+
 # Faster refresh without AI/provider theme extraction
 pnpm run refresh:static -- --no-themes
 
@@ -152,6 +155,11 @@ If you prefer the Git-based workflow, run `pnpm run refresh:static` locally,
 commit the generated JSON, and change the Netlify build command to only
 `pnpm run build:static`.
 
+For scheduled local refreshes, use `pnpm run refresh:static:checked`. It wraps
+the refresh and build validation in `scripts/refresh-static-data.sh`, which makes
+it suitable for a daily scheduler such as Codex automations, `cron`, or macOS
+`launchd`.
+
 ## Useful Commands
 
 ```bash
@@ -160,6 +168,9 @@ pnpm run typecheck
 
 # Full build
 pnpm run build
+
+# Refresh static podcast data and verify the static build
+pnpm run refresh:static:checked
 
 # API build only
 pnpm --filter @workspace/api-server build
